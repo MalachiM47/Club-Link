@@ -1,0 +1,60 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {
+  filterUpcomingEvents,
+  formatRelativeDate,
+  getPreviousEvents,
+  initialsFromEmail,
+  normalizeSearch,
+  parseDate,
+  toDatetimeLocalValue,
+} from '../js/utils.js';
+
+test('parseDate rejects invalid and empty values', () => {
+  assert.equal(parseDate('not-a-date'), null);
+  assert.equal(parseDate(''), null);
+});
+
+test('search normalization is case-insensitive and trims whitespace', () => {
+  assert.equal(normalizeSearch('  Science FAIR '), 'science fair');
+});
+
+test('event filtering hides past events and searches all supported fields', () => {
+  const now = new Date('2026-09-07T12:00:00.000Z');
+  const events = [
+    { name: 'Past meeting', location: 'Room 1', description: '', event_date: '2026-09-06T12:00:00.000Z' },
+    { name: 'Design workshop', location: 'Library', description: 'Bring a laptop', event_date: '2026-09-20T12:00:00.000Z' },
+    { name: 'Service day', location: 'Courtyard', description: 'Community project', event_date: '2027-01-10T12:00:00.000Z' },
+  ];
+
+  assert.deepEqual(filterUpcomingEvents(events, '', 'all', now), [events[1], events[2]]);
+  assert.deepEqual(filterUpcomingEvents(events, 'LIBRARY', 'all', now), [events[1]]);
+  assert.deepEqual(filterUpcomingEvents(events, 'community', 'all', now), [events[2]]);
+  assert.deepEqual(filterUpcomingEvents(events, '', '30', now), [events[1]]);
+});
+
+test('previous events include only passed schedule items in newest-first order', () => {
+  const now = new Date('2026-09-07T12:00:00.000Z');
+  const events = [
+    { name: 'Older meeting', event_date: '2026-08-01T12:00:00.000Z' },
+    { name: 'Upcoming event', event_date: '2026-09-20T12:00:00.000Z' },
+    { name: 'Recent workshop', event_date: '2026-09-06T12:00:00.000Z' },
+  ];
+
+  assert.deepEqual(getPreviousEvents(events, now), [events[2], events[0]]);
+});
+
+test('relative dates produce useful near-term labels', () => {
+  const now = new Date(2026, 8, 7, 9, 0, 0);
+  assert.equal(formatRelativeDate(new Date(2026, 8, 7, 18, 0, 0), now), 'Today');
+  assert.equal(formatRelativeDate(new Date(2026, 8, 8, 18, 0, 0), now), 'Tomorrow');
+});
+
+test('datetime-local conversion preserves a usable local minute value', () => {
+  assert.match(toDatetimeLocalValue('2026-09-20T18:30:00.000Z'), /^2026-09-20T\d{2}:30$/);
+});
+
+test('account avatar uses the first email character safely', () => {
+  assert.equal(initialsFromEmail('officer@example.com'), 'O');
+  assert.equal(initialsFromEmail(''), 'O');
+});

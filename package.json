@@ -1,0 +1,15 @@
+{
+  "name": "club-link",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "A Supabase-backed schedule and information dashboard for a high school club.",
+  "scripts": {
+    "start": "node scripts/serve.mjs",
+    "check": "node tests/project-check.mjs && node --test tests/utils.test.mjs tests/database-contract.test.mjs tests/auth-contract.test.mjs",
+    "browser-check": "node tests/browser-check.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

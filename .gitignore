@@ -1,0 +1,23 @@
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+
+# Local development
+node_modules/
+.vercel/
+coverage/
+*.log
+test-artifacts/
+
+# Editors and operating systems
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+
+# Previous build output
+target/
+out/
+dist/

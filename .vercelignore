@@ -1,0 +1,9 @@
+.idea/
+.mvn/
+src/
+tests/
+test-artifacts/
+scripts/
+*.log
+README.md
+supabase-setup.sql
