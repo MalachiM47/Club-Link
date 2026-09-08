@@ -23,6 +23,8 @@ import {
   toDatetimeLocalValue,
 } from './utils.js';
 
+import { applyBranding } from './branding.js';
+
 const state = {
   events: [],
   announcements: [],
@@ -519,6 +521,7 @@ function renderAnnouncements() {
 }
 
 function renderClubInformation() {
+  applyBranding(state.settings);
   elements.clubDescription.textContent = state.settings?.club_description
     || 'Club details will be posted here after the site is connected.';
   elements.membershipInfo.textContent = state.settings?.membership_info
@@ -694,6 +697,8 @@ function openAnnouncementDialog(announcement = null) {
 function openClubDialog() {
   if (!requireOfficer()) return;
   resetFormError('#club-error');
+  document.querySelector('#club-name-input').value = state.settings?.club_name || 'Club Link';
+  document.querySelector('#color-scheme-input').value = state.settings?.color_scheme || 'default';
   document.querySelector('#club-description-input').value = state.settings?.club_description || '';
   document.querySelector('#membership-info-input').value = state.settings?.membership_info || '';
   document.querySelector('#contact-email-input').value = state.settings?.contact_email || '';
@@ -813,11 +818,15 @@ async function handleClubSubmit(event) {
   event.preventDefault();
   if (!requireOfficer()) return;
   resetFormError('#club-error');
+  document.querySelector('#club-name-input').value = state.settings?.club_name || 'Club Link';
+  document.querySelector('#color-scheme-input').value = state.settings?.color_scheme || 'default';
   const submit = document.querySelector('#club-submit');
   const data = new FormData(event.currentTarget);
   setSubmitBusy(submit, true, 'Saving…');
   try {
     await saveClubInformation({
+      club_name: data.get('club_name'),
+      color_scheme: data.get('color_scheme'),
       club_description: data.get('club_description'),
       membership_info: data.get('membership_info'),
       contact_email: data.get('contact_email'),

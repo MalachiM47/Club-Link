@@ -245,3 +245,7 @@ commit;
 -- To remove authorization without deleting the login account:
 -- delete from public.admins
 -- where user_id = (select id from auth.users where email = 'officer@example.com');
+
+-- Shared officer-managed appearance settings.
+alter table public.club_settings add column if not exists club_name text not null default 'Club Link' check (char_length(btrim(club_name)) between 1 and 80);
+alter table public.club_settings add column if not exists color_scheme text not null default 'default' check (color_scheme in ('default','forest','plum','sunset'));

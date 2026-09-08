@@ -272,12 +272,12 @@ h3 {
 
 .nav-link.is-active {
   border-color: rgba(94, 162, 255, 0.18);
-  background: rgba(35, 121, 223, 0.16);
+  background: var(--nav-active, rgba(35, 121, 223, 0.16));
   color: #fff;
 }
 
 .nav-link.is-active .icon {
-  color: #6eafff;
+  color: var(--accent-light, #6eafff);
 }
 
 .sidebar-spacer {
@@ -294,7 +294,7 @@ h3 {
 
 .officer-panel .eyebrow {
   margin-bottom: 8px;
-  color: #8ebeff;
+  color: var(--accent-light, #8ebeff);
 }
 
 .officer-panel-copy,
@@ -503,7 +503,7 @@ h3 {
 }
 
 .meeting-date-tile span {
-  color: #78b5ff;
+  color: var(--accent-light, #78b5ff);
   font-size: 0.75rem;
   font-weight: 800;
   letter-spacing: 0.15em;
@@ -534,7 +534,7 @@ h3 {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  color: #a9cdf9;
+  color: var(--accent-light, #a9cdf9);
   font-size: 0.75rem;
   font-weight: 800;
   letter-spacing: 0.1em;
@@ -545,7 +545,7 @@ h3 {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: #6eafff;
+  background: var(--accent-light, #6eafff);
   box-shadow: 0 0 0 4px rgba(110, 175, 255, 0.15);
 }
 
@@ -577,7 +577,7 @@ h3 {
 }
 
 .meeting-meta .icon {
-  color: #75b3ff;
+  color: var(--accent-light, #75b3ff);
 }
 
 .meeting-note {
@@ -1182,7 +1182,7 @@ h3 {
 }
 
 .button-primary:hover:not(:disabled) {
-  background: #125bad;
+  background: var(--accent-hover, #125bad);
 }
 
 .button-secondary {
@@ -1973,3 +1973,15 @@ h3 {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Original palette remains the default; alternate palettes share the layout. */
+:root[data-color-scheme="forest"] { --navy-950:#102b23; --navy-900:#173e31; --navy-800:#23543e; --blue-700:#246b43; --blue-600:#2b7a4c; --blue-100:#dceee0; --blue-50:#eef7f0; --surface-soft:#f5f8f5; }
+:root[data-color-scheme="plum"] { --navy-950:#2b183b; --navy-900:#3d2352; --navy-800:#56366c; --blue-700:#75449b; --blue-600:#8451ab; --blue-100:#eedff8; --blue-50:#f7f0fc; --surface-soft:#f8f5fa; }
+:root[data-color-scheme="sunset"] { --navy-950:#351d18; --navy-900:#512c22; --navy-800:#6c3b2b; --blue-700:#a74528; --blue-600:#b84e2c; --blue-100:#f9e2d6; --blue-50:#fff3ec; --surface-soft:#faf6f3; }
+.brand-copy, .mobile-brand { min-width:0; }
+.brand-copy strong, .mobile-brand strong { overflow-wrap:anywhere; }
+.brand-mark { flex-shrink:0; }
+
+:root[data-color-scheme="forest"] { --accent-light:#a5ddb6; --accent-hover:#205c39; --nav-active:#214e3c; }
+:root[data-color-scheme="plum"] { --accent-light:#dbb4f3; --accent-hover:#633683; --nav-active:#53346b; }
+:root[data-color-scheme="sunset"] { --accent-light:#ffc6a4; --accent-hover:#8d3820; --nav-active:#6c3c2a; }

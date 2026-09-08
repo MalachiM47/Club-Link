@@ -42,7 +42,7 @@ export async function loadPublicData(supabase = requireConfiguredClient()) {
       .order('posted_at', { ascending: false }),
     supabase
       .from('club_settings')
-      .select('id,club_description,membership_info,contact_email,updated_at')
+      .select('id,club_name,color_scheme,club_description,membership_info,contact_email,updated_at')
       .eq('id', 1)
       .maybeSingle(),
   ]);
@@ -129,6 +129,8 @@ export async function removeAnnouncement(id, supabase = requireConfiguredClient(
 export async function saveClubInformation(settings, supabase = requireConfiguredClient()) {
   const payload = {
     id: 1,
+    club_name: String(settings.club_name ?? 'Club Link').trim() || 'Club Link',
+    color_scheme: ['default', 'forest', 'plum', 'sunset'].includes(settings.color_scheme) ? settings.color_scheme : 'default',
     club_description: settings.club_description.trim(),
     membership_info: settings.membership_info.trim(),
     contact_email: settings.contact_email.trim() || null,

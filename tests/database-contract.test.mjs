@@ -133,3 +133,14 @@ test('club settings upsert the singleton row', async () => {
   assert.equal(clubDb.calls[0].value.value.id, 1);
   assert.equal(clubDb.calls[0].value.value.contact_email, 'club@example.com');
 });
+
+test('club name and palette persist together and unsupported palettes use the default', async () => {
+  const mock = createDatabaseMock();
+  await saveClubInformation({ club_name: '  Robotics Society  ', color_scheme: 'forest', club_description: 'Description', membership_info: 'Join us', contact_email: '' }, mock.client);
+  assert.equal(mock.calls[0].value.value.club_name, 'Robotics Society');
+  assert.equal(mock.calls[0].value.value.color_scheme, 'forest');
+  const fallback = createDatabaseMock();
+  await saveClubInformation({ club_name: ' ', color_scheme: 'unrecognized', club_description: 'Description', membership_info: 'Join us', contact_email: '' }, fallback.client);
+  assert.equal(fallback.calls[0].value.value.club_name, 'Club Link');
+  assert.equal(fallback.calls[0].value.value.color_scheme, 'default');
+});
