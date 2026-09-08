@@ -818,8 +818,6 @@ async function handleClubSubmit(event) {
   event.preventDefault();
   if (!requireOfficer()) return;
   resetFormError('#club-error');
-  document.querySelector('#club-name-input').value = state.settings?.club_name || 'Club Link';
-  document.querySelector('#color-scheme-input').value = state.settings?.color_scheme || 'default';
   const submit = document.querySelector('#club-submit');
   const data = new FormData(event.currentTarget);
   setSubmitBusy(submit, true, 'Saving…');
@@ -913,12 +911,10 @@ function closeMobileNav() {
 
 function initializeDialogs() {
   document.querySelectorAll('.dialog').forEach((dialog) => {
-    dialog.querySelectorAll('.dialog-close, .dialog-cancel').forEach((button) => {
+    dialog.querySelectorAll('.dialog-cancel').forEach((button) => {
       button.addEventListener('click', () => closeDialog(dialog));
     });
-    dialog.addEventListener('click', (event) => {
-      if (event.target === dialog) closeDialog(dialog);
-    });
+    dialog.addEventListener('cancel', (event) => event.preventDefault());
     dialog.addEventListener('close', () => {
       if (dialog.id === 'confirm-dialog') state.pendingDelete = null;
     });

@@ -226,7 +226,7 @@ async function testViewport(cdp, width, height) {
     const authScreenshot = await cdp.send('Page.captureScreenshot', { format: 'png', fromSurface: true });
     writeFileSync(join(artifacts, 'club-link-auth-390.png'), Buffer.from(authScreenshot.data, 'base64'));
   }
-  await evaluate(cdp, `document.querySelector('#auth-dialog .dialog-close').click()`);
+  await evaluate(cdp, `document.querySelector('#auth-dialog .dialog-cancel').click()`);
 
   if (width <= 430) {
     const stressWidth = await evaluate(cdp, `(() => {

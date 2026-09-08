@@ -6,7 +6,7 @@
   "description": "A Supabase-backed schedule and information dashboard for a high school club.",
   "scripts": {
     "start": "node scripts/serve.mjs",
-    "check": "node tests/project-check.mjs && node --test tests/utils.test.mjs tests/database-contract.test.mjs tests/auth-contract.test.mjs",
+    "check": "node tests/project-check.mjs && node --test tests/utils.test.mjs tests/database-contract.test.mjs tests/auth-contract.test.mjs tests/settings-regression.test.mjs",
     "browser-check": "node tests/browser-check.mjs"
   },
   "engines": {

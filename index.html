@@ -235,7 +235,7 @@
 
   <dialog class="dialog" id="auth-dialog" aria-labelledby="auth-dialog-title">
     <div class="dialog-card dialog-card-small">
-      <div class="dialog-header"><div><p class="eyebrow">Restricted access</p><h2 id="auth-dialog-title">Officer sign in</h2></div><button class="icon-button dialog-close" type="button" aria-label="Close sign in"><svg class="icon"><use href="#icon-close"></use></svg></button></div>
+      <div class="dialog-header"><div><p class="eyebrow">Restricted access</p><h2 id="auth-dialog-title">Officer sign in</h2></div><button class="button button-secondary dialog-cancel" type="button">Cancel</button></div>
       <p class="dialog-intro">Use the email and password assigned to your officer account. There is no public account registration.</p>
       <div class="inline-notice" id="auth-config-notice" hidden><strong>Supabase is not connected.</strong><span>Add the project URL and publishable key in <code>js/config.js</code> before signing in.</span></div>
       <form id="auth-form">
@@ -249,7 +249,7 @@
 
   <dialog class="dialog" id="event-dialog" aria-labelledby="event-dialog-title">
     <div class="dialog-card">
-      <div class="dialog-header"><div><p class="eyebrow">Club schedule</p><h2 id="event-dialog-title">Add event or meeting</h2></div><button class="icon-button dialog-close" type="button" aria-label="Close schedule form"><svg class="icon"><use href="#icon-close"></use></svg></button></div>
+      <div class="dialog-header"><div><p class="eyebrow">Club schedule</p><h2 id="event-dialog-title">Add event or meeting</h2></div><button class="button button-secondary dialog-cancel" type="button">Cancel</button></div>
       <form id="event-form">
         <input id="event-id" name="id" type="hidden">
         <div class="field">
@@ -278,7 +278,7 @@
 
   <dialog class="dialog" id="announcement-dialog" aria-labelledby="announcement-dialog-title">
     <div class="dialog-card">
-      <div class="dialog-header"><div><p class="eyebrow">Club update</p><h2 id="announcement-dialog-title">New announcement</h2></div><button class="icon-button dialog-close" type="button" aria-label="Close announcement form"><svg class="icon"><use href="#icon-close"></use></svg></button></div>
+      <div class="dialog-header"><div><p class="eyebrow">Club update</p><h2 id="announcement-dialog-title">New announcement</h2></div><button class="button button-secondary dialog-cancel" type="button">Cancel</button></div>
       <form id="announcement-form">
         <input id="announcement-id" name="id" type="hidden">
         <div class="field"><label for="announcement-title">Title</label><input id="announcement-title" name="title" type="text" maxlength="140" required></div>
@@ -291,7 +291,7 @@
 
   <dialog class="dialog" id="club-dialog" aria-labelledby="club-dialog-title">
     <div class="dialog-card">
-      <div class="dialog-header"><div><p class="eyebrow">Club information</p><h2 id="club-dialog-title">Website settings</h2></div><button class="icon-button dialog-close" type="button" aria-label="Close club information form"><svg class="icon"><use href="#icon-close"></use></svg></button></div>
+      <div class="dialog-header"><div><p class="eyebrow">Club information</p><h2 id="club-dialog-title">Website settings</h2></div><button class="button button-secondary dialog-cancel" type="button">Cancel</button></div>
       <form id="club-form">
         <div class="field" data-brand-ignore><label for="club-name-input">Club name</label><input id="club-name-input" name="club_name" type="text" maxlength="80" required placeholder="Club Link"></div>
         <div class="field" data-brand-ignore><label for="color-scheme-input">Color scheme</label><select id="color-scheme-input" name="color_scheme"><option value="default">Original — Navy &amp; Blue (default)</option><option value="forest">Forest — Green</option><option value="plum">Plum — Purple</option><option value="sunset">Sunset — Terracotta</option></select><small>Applies to the website for everyone when you save.</small></div>
@@ -306,7 +306,7 @@
 
   <dialog class="dialog" id="confirm-dialog" aria-labelledby="confirm-dialog-title">
     <div class="dialog-card dialog-card-small">
-      <div class="dialog-header"><div><p class="eyebrow">Please confirm</p><h2 id="confirm-dialog-title">Delete item?</h2></div><button class="icon-button dialog-close" type="button" aria-label="Close confirmation"><svg class="icon"><use href="#icon-close"></use></svg></button></div>
+      <div class="dialog-header"><div><p class="eyebrow">Please confirm</p><h2 id="confirm-dialog-title">Delete item?</h2></div><button class="button button-secondary dialog-cancel" type="button">Cancel</button></div>
       <p class="dialog-intro" id="confirm-dialog-copy">This cannot be undone.</p>
       <div class="dialog-actions"><button class="button button-secondary dialog-cancel" type="button">Cancel</button><button class="button button-danger" id="confirm-delete-button" type="button">Delete</button></div>
     </div>
