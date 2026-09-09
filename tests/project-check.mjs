@@ -31,7 +31,7 @@ for (const page of ['index.html', 'privacy.html', 'terms.html']) {
   if (duplicateIds.length) failures.push(`${page} has duplicate ids: ${[...new Set(duplicateIds)].join(', ')}`);
   for (const match of html.matchAll(/(?:href|src)="([^"#]+)"/g)) {
     const path = match[1];
-    if (/^(?:https?:|mailto:|data:)/.test(path)) continue;
+    if (/^(?:https?:|mailto:|data:|^\/_vercel\/)/.test(path)) continue;
     const cleanPath = path.split('?')[0];
     if (!existsSync(resolve(dirname(join(root, page)), cleanPath))) {
       failures.push(`${page} references missing local file: ${path}`);
