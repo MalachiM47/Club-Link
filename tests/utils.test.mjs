@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   filterUpcomingEvents,
+  getEventArchiveDate,
   formatRelativeDate,
   getPreviousEvents,
   initialsFromEmail,
@@ -57,4 +58,22 @@ test('datetime-local conversion preserves a usable local minute value', () => {
 test('account avatar uses the first email character safely', () => {
   assert.equal(initialsFromEmail('officer@example.com'), 'O');
   assert.equal(initialsFromEmail(''), 'O');
+});
+
+test('events remain through their scheduled day and archive exactly at next midnight', () => {
+  const event={name:'Meeting',event_date:new Date(2026,8,9,11,43).toISOString()};
+  for(const now of [new Date(2026,8,9,11,43),new Date(2026,8,9,23,59,59,999)]) {
+    assert.deepEqual(filterUpcomingEvents([event],'','all',now),[event]);
+    assert.deepEqual(getPreviousEvents([event],now),[]);
+  }
+  const midnight=new Date(2026,8,10);
+  assert.deepEqual(filterUpcomingEvents([event],'','all',midnight),[]);
+  assert.deepEqual(getPreviousEvents([event],midnight),[event]);
+});
+test('archive cutoff follows calendar boundaries, including year rollover and DST dates', () => {
+  for(const [year,month,day] of [[2026,11,31],[2026,2,8],[2026,10,1]]) {
+    const eventDate=new Date(year,month,day,11);
+    assert.equal(getEventArchiveDate(eventDate).getTime(),new Date(year,month,day+1).getTime());
+  }
+  assert.equal(getEventArchiveDate('invalid'),null);
 });

@@ -12,6 +12,7 @@ import {
 import { getAuthState, signInOfficer, signOutOfficer, watchAuthState } from './auth.js';
 import {
   filterUpcomingEvents,
+  getEventArchiveDate,
   formatDate,
   formatDateTime,
   formatRelativeDate,
@@ -220,7 +221,7 @@ function createOfficerNotes(event, dark = false) {
 function scheduleNextEventTransition() {
   window.clearTimeout(scheduleTransitionTimer);
   scheduleTransitionTimer = null;
-  const nextEventDate = parseDate(getNextEvent()?.event_date);
+  const nextEventDate = getEventArchiveDate(getNextEvent()?.event_date);
   if (!nextEventDate) return;
 
   const millisecondsUntilPast = Math.max(0, nextEventDate.getTime() - Date.now() + 250);

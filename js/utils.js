@@ -45,6 +45,12 @@ export function normalizeSearch(value) {
   return String(value ?? '').trim().toLocaleLowerCase();
 }
 
+// Archive at the start of the following calendar day in the displayed local timezone.
+export function getEventArchiveDate(value) {
+  const date = parseDate(value);
+  return date ? new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1) : null;
+}
+
 export function filterUpcomingEvents(events, searchTerm, rangeDays, now = new Date()) {
   const search = normalizeSearch(searchTerm);
   const upperBound = rangeDays === 'all'
@@ -53,7 +59,7 @@ export function filterUpcomingEvents(events, searchTerm, rangeDays, now = new Da
 
   return events.filter((event) => {
     const eventDate = parseDate(event.event_date);
-    if (!eventDate || eventDate < now) return false;
+    if (!eventDate || getEventArchiveDate(event.event_date) <= now) return false;
     if (upperBound && eventDate > upperBound) return false;
     if (!search) return true;
     return [event.name, event.location, event.description]
@@ -65,7 +71,7 @@ export function getPreviousEvents(events, now = new Date()) {
   return events
     .filter((event) => {
       const eventDate = parseDate(event.event_date);
-      return eventDate && eventDate < now;
+      return eventDate && getEventArchiveDate(event.event_date) <= now;
     })
     .sort((first, second) => parseDate(second.event_date) - parseDate(first.event_date));
 }
