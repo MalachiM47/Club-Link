@@ -266,10 +266,15 @@
         </div>
         <div class="field"><label for="event-description">Description <span>Optional</span></label><textarea id="event-description" name="description" rows="4" maxlength="1000"></textarea></div>
         <div class="field officer-notes-field" id="meeting-officer-notes-field">
-          <label for="meeting-officer-notes">Officer notes <span>Private</span></label>
+          <label for="meeting-officer-notes">Agenda <span>Officers only</span></label>
           <textarea id="meeting-officer-notes" name="officer_notes" rows="5" maxlength="4000"></textarea>
-          <small>Only authorized officers can load or change these notes.</small>
+          <small>Existing private notes are kept here as the agenda.</small>
         </div>
+          <div class="field officer-notes-field" id="secretary-notes-field">
+            <label for="secretary-notes">Secretary notes <span>Officers only</span></label>
+            <textarea id="secretary-notes" name="secretary_notes" rows="6" maxlength="4000"></textarea>
+            <small>Record minutes and decisions. Officers can view and edit these later under Previous events.</small>
+          </div>
         <p class="form-error" id="event-error" role="alert" hidden></p>
         <div class="dialog-actions"><button class="button button-secondary dialog-cancel" type="button">Cancel</button><button class="button button-primary" id="event-submit" type="submit">Add to schedule</button></div>
       </form>

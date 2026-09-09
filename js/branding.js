@@ -10,12 +10,12 @@ const originalTitle = document.title;
 export function applyBranding(settings) {
   const name = String(settings?.club_name || 'Club Link').trim() || 'Club Link';
   const scheme = ['forest','plum','sunset'].includes(settings?.color_scheme) ? settings.color_scheme : 'default';
-  const replace = text => name === 'Club Link' ? text : text.replace(/Club Link|the club|\bclub\b/gi, () => name);
+  const replace = text => name === 'Club Link' ? text : text.replace(/Club Link|the club|\bclub\b/gi, match => match.toLowerCase() === 'club link' ? match : name);
   for (const [node, text] of copy) if (node.isConnected) node.textContent = replace(text);
   for (const [node, text] of labels) if (/club/i.test(text)) node.setAttribute('aria-label', replace(text));
-  document.title = name === 'Club Link' ? originalTitle : originalTitle.replace('Club Link', name).replace('Club Dashboard', 'Dashboard');
+  document.title = originalTitle;
   document.documentElement.dataset.colorScheme = scheme;
-  for (const mark of document.querySelectorAll('.brand-mark')) mark.textContent = name === 'Club Link' ? 'CL' : name.split(/\s+/).slice(0,2).map(word => [...word][0]).join('').toUpperCase();
+  for (const mark of document.querySelectorAll('.brand-mark')) mark.textContent = 'CL';
   const meta = document.querySelector('meta[name="theme-color"]');
   if (meta) meta.content = {default:'#102a43',forest:'#173e31',plum:'#3d2352',sunset:'#512c22'}[scheme];
 }

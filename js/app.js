@@ -4,11 +4,10 @@ import {
   loadPublicData,
   removeAnnouncement,
   removeEvent,
-  removeMeetingOfficerNotes,
   saveAnnouncement,
   saveClubInformation,
   saveEvent,
-  saveMeetingOfficerNotes,
+  saveMeetingDetails,
 } from './database.js';
 import { getAuthState, signInOfficer, signOutOfficer, watchAuthState } from './auth.js';
 import {
@@ -79,6 +78,8 @@ const elements = {
   eventName: document.querySelector('#event-name'),
   meetingOfficerNotesField: document.querySelector('#meeting-officer-notes-field'),
   meetingOfficerNotes: document.querySelector('#meeting-officer-notes'),
+  secretaryNotesField: document.querySelector('#secretary-notes-field'),
+  secretaryNotes: document.querySelector('#secretary-notes'),
 };
 
 function createIcon(symbol) {
@@ -193,19 +194,25 @@ function createOfficerNotes(event, dark = false) {
   const details = document.createElement('details');
   details.className = `officer-notes${dark ? ' officer-notes-dark' : ''}`;
   const summary = document.createElement('summary');
-  summary.textContent = 'Officer notes';
+  summary.textContent = 'Officer-only meeting information';
   const body = document.createElement('div');
   body.className = 'officer-notes-body';
+  const agendaHeading = document.createElement('h4');
+  agendaHeading.textContent = 'Agenda';
+  const secretaryHeading = document.createElement('h4');
+  secretaryHeading.textContent = 'Secretary notes';
+  const secretary = document.createElement('p');
+  secretary.textContent = state.meetingDetailsError ? 'Secretary notes could not be loaded.' : state.meetingDetails.get(event.id)?.secretary_notes || 'No secretary notes have been added.';
   const note = document.createElement('p');
   note.textContent = state.meetingDetailsError
     ? 'Private notes could not be loaded.'
-    : state.meetingDetails.get(event.id)?.notes || 'No private notes have been added.';
+    : state.meetingDetails.get(event.id)?.notes || 'No agenda has been added.';
   const edit = document.createElement('button');
   edit.type = 'button';
   edit.className = dark ? 'button button-on-dark' : 'button button-secondary';
   edit.textContent = 'Edit meeting details';
   edit.addEventListener('click', () => openEventDialog(event));
-  body.append(note, edit);
+  body.append(agendaHeading, note, secretaryHeading, secretary, edit);
   details.append(summary, body);
   return details;
 }
@@ -661,6 +668,8 @@ function syncEventTypeFields() {
   elements.eventName.required = !isMeeting;
   elements.meetingOfficerNotesField.hidden = !isMeeting;
   elements.meetingOfficerNotes.disabled = !isMeeting;
+  elements.secretaryNotesField.hidden = !isMeeting;
+  elements.secretaryNotes.disabled = !isMeeting;
 }
 
 function openEventDialog(event = null) {
@@ -677,6 +686,7 @@ function openEventDialog(event = null) {
   document.querySelector('#event-location').value = event?.location || '';
   document.querySelector('#event-description').value = event?.description || '';
   elements.meetingOfficerNotes.value = event ? state.meetingDetails.get(event.id)?.notes || '' : '';
+  elements.secretaryNotes.value = event ? state.meetingDetails.get(event.id)?.secretary_notes || '' : '';
   syncEventTypeFields();
   openDialog(document.querySelector('#event-dialog'));
 }
@@ -743,6 +753,10 @@ async function handleEventSubmit(event) {
   const data = new FormData(form);
   const eventId = data.get('id');
   const eventType = data.get('event_type');
+  if (eventId && state.meetingDetailsError) {
+    setFormError('#event-error', 'Private meeting information could not be loaded. Refresh and try again before saving.');
+    return;
+  }
   if (!['meeting', 'other'].includes(eventType)) {
     setFormError('#event-error', 'Choose Meeting or Other.');
     return;
@@ -770,9 +784,8 @@ async function handleEventSubmit(event) {
     });
     const savedEventId = savedEvent.id;
     if (eventType === 'meeting') {
-      await saveMeetingOfficerNotes(savedEventId, data.get('officer_notes') || '');
-    } else if (eventId) {
-      await removeMeetingOfficerNotes(eventId);
+      await saveMeetingDetails(savedEventId, data.get('officer_notes') || '', data.get('secretary_notes') || '');
+
     }
     const wasEditing = Boolean(eventId);
     form.reset();

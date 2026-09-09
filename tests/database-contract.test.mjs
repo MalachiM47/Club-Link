@@ -144,3 +144,12 @@ test('club name and palette persist together and unsupported palettes use the de
   assert.equal(fallback.calls[0].value.value.club_name, 'Club Link');
   assert.equal(fallback.calls[0].value.value.color_scheme, 'default');
 });
+
+test('agenda and secretary notes save independently, including an empty agenda', async () => {
+  const { saveMeetingDetails } = await import('../js/database.js');
+  const mock = createDatabaseMock();
+  await saveMeetingDetails('meeting-1', '', '  Decisions from the meeting  ', mock.client);
+  assert.equal(mock.calls[0].table, 'event_officer_details');
+  assert.equal(mock.calls[0].method, 'upsert');
+  assert.deepEqual(mock.calls[0].value.value, {event_id:'meeting-1',notes:'',secretary_notes:'Decisions from the meeting'});
+});

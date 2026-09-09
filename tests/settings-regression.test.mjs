@@ -26,3 +26,22 @@ test('dialog keeps drafts on backdrop clicks and Escape, closes through Cancel',
   let prevented=false;events.cancel({preventDefault(){prevented=true;}});assert.equal(prevented,true);assert.equal(closed,0);
   buttons.click();assert.equal(closed,1);
 });
+
+test('custom club names leave website branding and page title as Club Link', () => {
+  const nodes=['Club Link','About the club','From club officers'].map(textContent=>({textContent,isConnected:true,parentElement:{closest:()=>false}}));
+  let index=-1;
+  const mark={textContent:'CL'};
+  const document={body:{},title:'Club Link | Club Dashboard',documentElement:{dataset:{}},createTreeWalker:()=>({nextNode(){index++;this.currentNode=nodes[index];return index<nodes.length;}}),querySelectorAll:selector=>selector==='.brand-mark'?[mark]:[],querySelector:()=>null};
+  const ctx=vm.createContext({document,NodeFilter:{SHOW_TEXT:4}});
+  const branding=readFileSync(new URL('../js/branding.js',import.meta.url),'utf8').replace('export function','function');
+  vm.runInContext(branding,ctx);ctx.applyBranding({club_name:'Robotics Society',color_scheme:'forest'});
+  assert.equal(nodes[0].textContent,'Club Link');assert.equal(nodes[1].textContent,'About Robotics Society');assert.equal(mark.textContent,'CL');assert.equal(document.title,'Club Link | Club Dashboard');
+});
+test('private sections render existing agenda and secretary notes only for officers', () => {
+  const node=()=>({children:[],classList:{add(){}},append(...children){this.children.push(...children);},addEventListener(){}});
+  const ctx=vm.createContext({state:{officer:true,meetingDetails:new Map([['past-meeting',{notes:'Existing agenda',secretary_notes:'Recorded decisions'}]])},document:{createElement:node},openEventDialog(){}});
+  vm.runInContext(source.slice(source.indexOf('function createOfficerNotes('),source.indexOf('function scheduleNextEventTransition(')),ctx);
+  const result=ctx.createOfficerNotes({id:'past-meeting',event_type:'meeting'});
+  assert.deepEqual(Array.from(result.children[1].children.slice(0,4),n=>n.textContent),['Agenda','Existing agenda','Secretary notes','Recorded decisions']);
+  ctx.state.officer=null;assert.equal(ctx.createOfficerNotes({id:'past-meeting',event_type:'meeting'}),null);
+});

@@ -71,7 +71,7 @@ export async function getOfficerRecord(userId, supabase = requireConfiguredClien
 export async function loadOfficerMeetingDetails(supabase = requireConfiguredClient()) {
   const result = await supabase
     .from('event_officer_details')
-    .select('event_id,notes,updated_at')
+    .select('event_id,notes,secretary_notes,updated_at')
     .order('updated_at', { ascending: false });
   return unwrap(result) ?? [];
 }
@@ -101,6 +101,12 @@ export async function saveMeetingOfficerNotes(eventId, notes, supabase = require
     .upsert({ event_id: eventId, notes: normalizedNotes }, { onConflict: 'event_id' })
     .select('event_id')
     .single());
+}
+
+export async function saveMeetingDetails(eventId, agenda, secretaryNotes, supabase = requireConfiguredClient()) {
+  return unwrap(await supabase.from('event_officer_details')
+    .upsert({ event_id: eventId, notes: String(agenda ?? '').trim(), secretary_notes: String(secretaryNotes ?? '').trim() }, { onConflict: 'event_id' })
+    .select('event_id').single());
 }
 
 export async function removeMeetingOfficerNotes(eventId, supabase = requireConfiguredClient()) {

@@ -249,3 +249,8 @@ commit;
 -- Shared officer-managed appearance settings.
 alter table public.club_settings add column if not exists club_name text not null default 'Club Link' check (char_length(btrim(club_name)) between 1 and 80);
 alter table public.club_settings add column if not exists color_scheme text not null default 'default' check (color_scheme in ('default','forest','plum','sunset'));
+
+-- Keep legacy notes as the agenda; add separate secretary notes.
+alter table public.event_officer_details add column if not exists secretary_notes text not null default '' check (char_length(secretary_notes) <= 4000);
+alter table public.event_officer_details drop constraint if exists event_officer_details_notes_check;
+alter table public.event_officer_details add constraint event_officer_details_notes_check check (char_length(notes) <= 4000);
