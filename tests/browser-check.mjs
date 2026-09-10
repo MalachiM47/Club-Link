@@ -188,31 +188,39 @@ try{
     await until(cdp,"document.querySelector('#events-list').textContent.includes('Club B only event')");
     assert(await ev(cdp,"document.querySelector('#add-event-button').hidden && !document.querySelector('#events-list').textContent.includes('<img') && !document.querySelector('#manage-codes').checkVisibility()"),'Club switching permissions/data incorrect');
     await shot(cdp,'member-'+width);
-    await click(cdp,'sign-out-button');await until(cdp,"!document.querySelector('#welcome-actions').hidden");
+    await click(cdp,'sign-out-button');await until(cdp,"document.querySelector('#platform-confirm').open");await submit(cdp,'platform-confirm-form');await until(cdp,"!document.querySelector('#welcome-actions').hidden");
     assert(await ev(cdp,"!document.body.textContent.includes('Private original notes')"),'Private data retained after logout');
   }
   await navigate(cdp);
+  assert(await ev(cdp,"document.querySelector('#my-clubs-button').disabled"),'My Clubs button should be disabled on the home view');
   await click(cdp,'home-signup');for(const [id,value] of [['signup-first','Test'],['signup-initial','T'],['signup-email','test@example.com'],['signup-password',' unchanged password ']])await fill(cdp,id,value);
   await submit(cdp,'signup-form');await until(cdp,"document.querySelector('#signup-status').textContent.includes('Check your email')");
+  assert(await ev(cdp,"document.querySelector('#signup-form').hidden && !document.querySelector('#signup-success').hidden"),'Signup success panel did not replace the form');
   assert(await ev(cdp,"window.__fixture.signup.password===' unchanged password ' && Object.keys(window.__fixture.signup.options.data).length===2"),'Signup fields incorrect');
   await ev(cdp,"document.querySelector('#signup-dialog .dialog-cancel').click()");
   await click(cdp,'home-login');await fill(cdp,'auth-email','test@example.com');await fill(cdp,'auth-password',' unchanged password ');await submit(cdp,'auth-form');
   await until(cdp,"document.querySelectorAll('.club-card').length===2");
   assert(await ev(cdp,"window.__fixture.login.password===' unchanged password '"),'Login password changed');
+  await click(cdp,'delete-account-button');await until(cdp,"document.querySelector('#account-delete-dialog').open");
+  await click(cdp,'account-delete-continue');await fill(cdp,'account-delete-word','DELETE');await click(cdp,'account-delete-ack');
+  assert(await ev(cdp,"!document.querySelector('#account-delete-submit').disabled"),'Account deletion safety checks did not unlock the final action');
+  await ev(cdp,"document.querySelector('#account-delete-dialog .dialog-cancel').click()");
   await navigate(cdp,'member');await click(cdp,'join-officer');await fill(cdp,'join-code','OFI-104-738');await submit(cdp,'join-form');
   await until(cdp,"!document.querySelector('#add-event-button').hidden");
   await navigate(cdp,'super');await click(cdp,'create-club');await fill(cdp,'new-club-name','Disposable test club');await fill(cdp,'new-club-description','Test description');await submit(cdp,'new-club-form');
   await until(cdp,"document.querySelector('#selected-club-name').textContent==='Disposable test club'");await click(cdp,'delete-club');await fill(cdp,'delete-name','Disposable test club');await submit(cdp,'platform-confirm-form');
   await until(cdp,"document.querySelectorAll('.club-card').length===2 && !document.querySelector('#platform-home').hidden");
+  assert(await ev(cdp,"document.querySelector('#my-clubs-button').disabled"),'My Clubs button should be disabled after returning home');
   // Empty and failed reads retain a usable landing/error state.
-  await ev(cdp,"window.__fixture.db.club_memberships=[];window.__fixture.db.clubs=[]");await click(cdp,'my-clubs-button');
+  await ev(cdp,"window.__fixture.db.club_memberships=[];window.__fixture.db.clubs=[]");await click(cdp,'brand-link');
   await until(cdp,"document.querySelector('#home-status').textContent.includes('No clubs')");
-  await ev(cdp,"window.__fixture.fail=true");await click(cdp,'my-clubs-button');await until(cdp,"!document.querySelector('#home-retry').hidden");
+  await ev(cdp,"window.__fixture.fail=true");await click(cdp,'brand-link');await until(cdp,"!document.querySelector('#home-retry').hidden");
   for(const path of ['privacy','terms']){await cdp.send('Page.navigate',{url:appUrl+path});await until(cdp,"document.readyState==='complete'&&!!document.querySelector('h1')");await noOverflow(cdp,430);}
   assert(errors.length===0,'Browser exceptions: '+errors.join('; '));
-  for(const path of ['.env.local','api/access.js','migrations/001_multi_club.sql','node_modules/@electric-sql/pglite/package.json','.git/config','js/%2e%2e%2fpackage.json'])assert((await fetch(appUrl+path)).status===404,'Private path served: '+path);
+  for(const path of ['.env.local','api/access.js','api/account.js','migrations/001_multi_club.sql','node_modules/@electric-sql/pglite/package.json','.git/config','js/%2e%2e%2fpackage.json'])assert((await fetch(appUrl+path)).status===404,'Private path served: '+path);
   assert((await fetch(appUrl+'%malformed')).status===400,'Malformed URLs must not crash the local server');
   assert((await fetch(appUrl+'api/access',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:'MEM-000-000',kind:'member'})})).status===503,'Missing server setup must fail clearly');
+  assert((await fetch(appUrl+'api/account',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({confirmation:'DELETE'})})).status===503,'Missing account deletion setup must fail clearly');
   cdp.close();console.log('PASS: browser login/signup, guest, roles, club switching, event/announcement creation, private agenda add/reorder/save, code rotation, super create/delete, empty/error states, navigation, escaping, 1440/375/390/430px and legal pages. Test fixtures only; live auth not exercised.');
 }finally{
   if(browser&&!browser.killed)browser.kill();if(server&&!server.killed)server.kill();

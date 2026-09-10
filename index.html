@@ -30,13 +30,14 @@
     <symbol id="icon-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3m3 0-1 13H7L6 7m4 4v5m4-5v5"/></symbol>
     <symbol id="icon-arrow" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
     <symbol id="icon-mail" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="1"/><path d="m4 7 8 6 8-6"/></symbol>
+    <symbol id="icon-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol>
     <symbol id="icon-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19 13.5v-3l-2-.7-.5-1.2.9-1.9-2.1-2.1-1.9.9-1.2-.5-.7-2h-3l-.7 2-1.2.5-1.9-.9-2.1 2.1.9 1.9-.5 1.2-2 .7v3l2 .7.5 1.2-.9 1.9 2.1 2.1 1.9-.9 1.2.5.7 2h3l.7-2 1.2-.5 1.9.9 2.1-2.1-.9-1.9.5-1.2 2-.7Z"/></symbol>
   </svg>
 
   <div class="app-shell">
     <aside class="sidebar" id="sidebar" aria-label="Primary navigation">
       <div class="sidebar-brand">
-        <a class="brand-link" href="#dashboard" aria-label="Club Link dashboard">
+        <a class="brand-link" id="brand-link" href="#platform-home" aria-label="Club Link home">
           <span class="brand-mark" aria-hidden="true">CL</span>
           <span class="brand-copy"><strong>Club Link</strong><small>Member hub</small></span>
         </a>
@@ -80,6 +81,7 @@
           <button class="button button-quiet button-full" id="sign-out-button" type="button">
             <svg class="icon"><use href="#icon-logout"></use></svg>Sign out
           </button>
+          <button class="account-delete-link" id="delete-account-button" type="button">Delete account</button>
         </div>
       </section>
 
@@ -92,7 +94,7 @@
 
     <main class="main-content" id="main-content">
       <header class="mobile-header">
-        <a class="mobile-brand" href="#dashboard" aria-label="Club Link dashboard"><span class="brand-mark">CL</span><strong>Club Link</strong></a>
+        <a class="mobile-brand" id="mobile-brand-link" href="#platform-home" aria-label="Club Link home"><span class="brand-mark">CL</span><strong>Club Link</strong></a>
         <button class="icon-button" id="menu-button" type="button" aria-label="Open navigation" aria-controls="sidebar" aria-expanded="false">
           <svg class="icon"><use href="#icon-menu"></use></svg>
         </button>
@@ -334,15 +336,17 @@
   </dialog>
 
   <dialog class="dialog" id="signup-dialog" aria-labelledby="signup-title" data-brand-ignore>
-    <div class="dialog-card"><div class="dialog-header"><h2 id="signup-title">Create account</h2><button class="button button-secondary dialog-cancel" type="button">Cancel</button></div>
+    <div class="dialog-card"><div class="dialog-header"><h2 id="signup-title">Create account</h2><button class="button button-secondary dialog-cancel" id="signup-close" type="button">Cancel</button></div>
       <form id="signup-form">
         <div class="field-row"><div class="field"><label for="signup-first">First name</label><input id="signup-first" name="first_name" maxlength="60" autocomplete="given-name" required></div><div class="field"><label for="signup-initial">Last initial</label><input id="signup-initial" name="last_initial" maxlength="1" required></div></div>
         <div class="field"><label for="signup-email">Email</label><input id="signup-email" name="email" type="email" autocomplete="email" required></div>
         <div class="field"><label for="signup-password">Password</label><input id="signup-password" name="password" type="password" autocomplete="new-password" minlength="8" required><small>Use at least 8 characters. Your password is handled by Supabase Auth.</small></div>
         <p>Read the <a href="privacy.html" target="_blank" rel="noopener">Privacy Policy</a> and <a href="terms.html" target="_blank" rel="noopener">Terms of Use</a>.</p>
-        <p id="signup-error" class="form-error" role="alert" hidden></p><p id="signup-status" role="status"></p>
+        <div class="signup-guidance" role="note"><svg class="icon" aria-hidden="true"><use href="#icon-mail"></use></svg><div><strong>After you create your account</strong><p>Check your email to confirm your account, then return here and log in.</p></div></div>
+        <p id="signup-error" class="form-error" role="alert" hidden></p><p id="signup-status" role="status" hidden></p>
         <div class="dialog-actions"><button class="button button-primary" type="submit">Create account</button></div>
       </form>
+      <section class="signup-success" id="signup-success" role="status" hidden aria-labelledby="signup-success-title"><div class="signup-success-icon" aria-hidden="true"><svg class="icon"><use href="#icon-check"></use></svg></div><h3 id="signup-success-title">Account created successfully</h3><p>We sent a confirmation email to <strong id="signup-success-email"></strong>.</p><p>Confirm your email before signing in. You can close this window when you are finished.</p><div class="dialog-actions"><button class="button button-primary" id="signup-success-login" type="button">Return to sign in</button></div></section>
     </div>
   </dialog>
   <dialog class="dialog" id="join-dialog" aria-labelledby="join-title" data-brand-ignore>
@@ -360,6 +364,12 @@
   </dialog>
   <dialog class="dialog" id="platform-confirm" aria-labelledby="platform-confirm-title" data-brand-ignore>
     <div class="dialog-card"><div class="dialog-header"><h2 id="platform-confirm-title">Please confirm</h2><button class="button button-secondary dialog-cancel" type="button">Cancel</button></div><p id="platform-confirm-copy"></p><form id="platform-confirm-form"><div class="field" id="delete-name-field" hidden><label for="delete-name">Type the exact club name to confirm</label><input id="delete-name" autocomplete="off"></div><p id="platform-confirm-error" class="form-error" role="alert" hidden></p><div class="dialog-actions"><button class="button button-danger" type="submit">Confirm</button></div></form></div>
+  </dialog>
+  <dialog class="dialog" id="account-delete-dialog" aria-labelledby="account-delete-title" data-brand-ignore>
+    <div class="dialog-card dialog-card-small"><div class="dialog-header"><div><p class="eyebrow">Account settings</p><h2 id="account-delete-title">Delete your account?</h2></div><button class="button button-secondary dialog-cancel" type="button">Cancel</button></div>
+      <section id="account-delete-step-one"><p class="dialog-intro">This permanently deletes your Club Link account, profile, and club memberships. Your clubs and shared content are not deleted by this action.</p><div class="danger-callout"><strong>This cannot be undone.</strong><span>Use this only if you are certain you no longer want to sign in to Club Link.</span></div><div class="dialog-actions"><button class="button button-secondary dialog-cancel" type="button">Keep my account</button><button class="button button-danger" id="account-delete-continue" type="button">Continue</button></div></section>
+      <form id="account-delete-step-two" hidden><p class="dialog-intro">Safety check 2 of 3. Type <strong>DELETE</strong> and confirm that you understand what will happen.</p><div class="field"><label for="account-delete-word">Type DELETE to continue</label><input id="account-delete-word" autocomplete="off" autocapitalize="characters" spellcheck="false"></div><label class="checkbox-field"><input id="account-delete-ack" type="checkbox"> <span>I understand that my account access and memberships will be permanently removed.</span></label><p class="form-error" id="account-delete-error" role="alert" hidden></p><div class="dialog-actions"><button class="button button-secondary dialog-cancel" type="button">Cancel</button><button class="button button-danger" id="account-delete-submit" type="submit" disabled>Delete account permanently</button></div></form>
+    </div>
   </dialog>
   <dialog class="dialog agenda-dialog" id="agenda-dialog" aria-labelledby="agenda-title" data-brand-ignore>
     <div class="dialog-card"><div class="dialog-header"><div><p class="eyebrow">Officers only</p><h2 id="agenda-title">Meeting agenda</h2></div><button class="button button-secondary" id="agenda-close" type="button">Close</button></div>

@@ -16,6 +16,7 @@ The prior live read-only inspection returned one BSU settings row, one event, an
 - Replaced the single agenda/minutes text areas with ordered talking points and per-point secretary notes. One meeting workspace supports adding, editing, deleting, reordering, and saving without opening a dialog per point.
 - Added recoverable code display/copy/rotation for that club's officers, plus a server-only redemption endpoint and database rate limiting.
 - Updated privacy/terms language, setup documentation, deployment configuration, and regression tests.
+- Added session-backed club restoration after tab suspension or reload, a confirmed sign-out flow, a three-step account deletion flow, and a bottom-anchored site footer.
 
 ## Database changes
 
@@ -45,6 +46,7 @@ Memberships have a unique club/user primary key and only `member`/`officer` role
 - Meeting start/end times live in the RLS-protected `meeting_minutes` table and are saved atomically with the agenda. Members cannot select or write them.
 - Old permissive single-club policies are removed inside the migration transaction. Leaving them in place would make the new policies ineffective.
 - Browser roles cannot modify memberships directly. Code redemption is executable only by the server's `service_role`; it upgrades one club/user row and never downgrades an existing officer.
+- Account deletion is handled by `api/account.js`, which verifies the signed-in bearer token before using the server-only Supabase Auth admin endpoint. Cascading references remove the account profile and memberships without deleting shared club content.
 - The server gets the account UUID from Supabase Auth's verified user response, never from request body fields. Its network rate-limit bucket is a keyed hash, not a client-supplied identifier.
 - Security-definer functions have fixed search paths and explicit execution grants. Source files, environment files, migrations, and fixtures are excluded from the static build.
 

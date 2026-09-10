@@ -2,6 +2,7 @@ import { createReadStream, existsSync, statSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { extname, join, normalize, sep } from 'node:path';
 import accessHandler from '../api/access.js';
+import accountHandler from '../api/account.js';
 
 const port = Number(process.env.PORT || 4173);
 const root = process.cwd();
@@ -15,6 +16,7 @@ const mimeTypes = {
 
 createServer((request, response) => {
   if (request.url.split('?')[0] === '/api/access') return accessHandler(request, response);
+  if (request.url.split('?')[0] === '/api/account') return accountHandler(request, response);
   let pathname;
   try {
     pathname = decodeURIComponent(new URL(request.url, 'http://localhost').pathname);

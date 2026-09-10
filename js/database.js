@@ -82,4 +82,14 @@ export async function redeemCode(code,kind,guest=false) {
   if (!response.ok) throw new Error(result.error||'The code could not be checked.');
   return result;
 }
+export async function deleteAccount(supabase=getSupabaseClient()) {
+  const {data,error}=await supabase.auth.getSession();
+  if(error) throw error;
+  const token=data.session?.access_token;
+  if(!token) throw new Error('Sign in again before deleting your account.');
+  const response=await fetch('/api/account',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({confirmation:'DELETE'})});
+  let result={};try{result=await response.json();}catch{}
+  if(!response.ok) throw new Error(result.error||'Your account could not be deleted.');
+  return result;
+}
 export { isSupabaseConfigured };

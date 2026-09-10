@@ -14,6 +14,7 @@ Club logistics are often scattered across messages, documents, and word of mouth
 
 - **My Clubs:** one account, multiple independent memberships, clickable club cards, and a simple return button.
 - **Accounts:** first name, last initial, email, and password only. Supabase handles authentication and email confirmation.
+- **Account controls:** confirmed sign-out and a three-step account deletion flow backed by a server-only Supabase Auth endpoint.
 - **Member access:** join permanently with a Member Code, or view a club temporarily without an account.
 - **Officer access:** a reusable Officer Code upgrades the authenticated user's membership without creating duplicates.
 - **Club dashboard:** next schedule item, chronological upcoming events, text/date filtering, latest announcements, and club information.
@@ -36,6 +37,7 @@ The frontend remains framework-free. The only browser library is Supabase JavaSc
 | `js/agenda-editor.js` | In-memory meeting drafts, point ordering, notes and versioned saves |
 | `js/utils.js` | Date, archive, search and formatting helpers |
 | `api/access.js` | Verified-account/guest code entry, trusted network bucket, server-only RPC |
+| `api/account.js` | Server-only, bearer-verified Supabase Auth account deletion |
 | `migrations/001_multi_club.sql` | BSU migration, relationships, permissions, codes and atomic agenda saves |
 
 Registered content reads go directly to Supabase with a selected `club_id`. RLS independently checks access. The browser does not download all clubs' content and filter it afterward. Switching clubs immediately clears the previous club and private agenda state; late responses from an old selection are ignored.
@@ -78,6 +80,7 @@ Foreign keys enforce club ownership. Memberships have a composite primary key; r
 - Failed code attempts commit their rate counters. Current limits are 12 per IP hash, 12 per account, and 300 globally per 15 minutes.
 - Rotation invalidates the old code without deleting registered memberships. Member-code rotation also invalidates its guest tokens.
 - Browser code contains only public configuration. The service-role key stays in the server environment. Static builds use a file allowlist.
+- Account deletion verifies the signed-in bearer token on the server and requires three client-side confirmations. The service-role key never reaches the browser.
 
 See [Supabase's RLS guide](https://supabase.com/docs/guides/database/postgres/row-level-security) for the database mechanism. These tests verify this project's policies; they are not an independent security audit.
 
@@ -163,7 +166,7 @@ CRUD; asynchronous JavaScript; authentication versus authorization; relational P
 
 Short reusable codes are intentionally easy to share. They are not equivalent to high-entropy invitations, and an Officer Code grants real editing power. Rate limits can also affect a group using shared school Wi-Fi. Before expanding to many clubs, review enrollment limits and add stronger abuse protection if needed.
 
-Agenda drafts survive failed saves while the page remains open, but are not offline/crash-recoverable. Large clubs currently load their full selected-club schedule and announcement history; pagination is a future improvement. Membership revocation, account deletion and backup retention remain owner-operated tasks. No billing, district management, or customizable role hierarchy is included.
+Agenda drafts survive failed saves while the page remains open, but are not offline/crash-recoverable. Large clubs currently load their full selected-club schedule and announcement history; pagination is a future improvement. Account deletion removes the Auth account and cascaded memberships, while shared club content remains for the club. No billing, district management, or customizable role hierarchy is included.
 
 ## License
 

@@ -1,20 +1,23 @@
-import {loadAccount,clubRpc,redeemCode,isSupabaseConfigured} from './database.js';
+import {loadAccount,clubRpc,redeemCode,deleteAccount as deleteAccountRequest,isSupabaseConfigured} from './database.js';
 import {getAuthState,signInOfficer,signOutOfficer,signUpAccount,watchAuthState} from './auth.js';
 
 export function createPlatform({selectClub,clearClub,toast,beforeLeave}) {
   const $=id=>document.getElementById(id);
-  let user=null,account=null,selected=null,joinKind='member',guestJoin=false,revision=0,pending=null,authTransition=null,loginInProgress=false;
+  const selectedClubKey='club-link-selected-club';
+  let user=null,account=null,selected=null,joinKind='member',guestJoin=false,revision=0,pending=null,authTransition=null,loginInProgress=false,restoringClub=false;
+  function savedClubId() {try{return window.sessionStorage.getItem(selectedClubKey);}catch{return null;}}
+  function forgetSavedClub() {try{window.sessionStorage.removeItem(selectedClubKey);}catch{}}
   function message(id,text='') {$(id).textContent=text;$(id).hidden=!text;}
   function show(id) {if(!$(id).open)$(id).showModal();}
   function resetPrivateDialogs() {
-    for(const id of ['codes-dialog','platform-confirm','new-club-dialog','join-dialog'])$(id).close();
+    for(const id of ['codes-dialog','platform-confirm','new-club-dialog','join-dialog','account-delete-dialog'])$(id).close();
     $('code-rows').replaceChildren();$('join-form').reset();pending=null;
   }
   function setView(club) {
     selected=club;
     $('platform-home').hidden=Boolean(club);$('selected-club-bar').hidden=!club;$('club-navigation').hidden=!club;
     document.querySelectorAll('.page-section').forEach(node=>node.hidden=!club);
-    $('manage-codes').hidden=!club?.officer;$('delete-club').hidden=!(club&&account?.isSuper);
+    $('manage-codes').hidden=!club?.officer;$('delete-club').hidden=!(club&&account?.isSuper);$('my-clubs-button').disabled=!club;
     $('guest-recommendation').hidden=!club?.guestToken;
     $('selected-club-name').textContent=club?.name||'';
     $('selected-club-role').textContent=club?.guestToken?'Guest view':account?.isSuper?'Super Admin':club?.officer?'Officer':'Member';
@@ -58,6 +61,8 @@ export function createPlatform({selectClub,clearClub,toast,beforeLeave}) {
       if(!data)throw lastError||new Error('Club account could not be loaded.');
       if(ticket!==revision)return;
       account=data;renderHome();message('home-status',data.clubs.length?'':'No clubs yet. Use Join a Club and enter the Member Code shared by an officer.');
+      const saved=savedClubId();const club=saved&&data.clubs.find(item=>item.id===saved);
+      if(club){restoringClub=true;try{await openClub(club);}finally{restoringClub=false;}}
     } catch {
       if(ticket!==revision)return;
       message('home-status','Your clubs could not be loaded. Check your connection. If this is the first multi-club launch, the site owner must apply the database migration.');$('home-retry').hidden=false;
@@ -65,14 +70,21 @@ export function createPlatform({selectClub,clearClub,toast,beforeLeave}) {
   }
   async function home(force=false) {
     if(!force&&!beforeLeave())return;
-    resetPrivateDialogs();clearClub(user);setView(null);await reloadAccount();
+    resetPrivateDialogs();forgetSavedClub();clearClub(user);setView(null);await reloadAccount();
   }
   async function openClub(club,guestToken=null) {
     if(!beforeLeave())return;
     resetPrivateDialogs();
     const officer=!guestToken&&Boolean(account?.isSuper||account?.memberships.some(item=>item.club_id===club.id&&item.role==='officer'));
     const context={...club,officer,guestToken,user,isSuper:Boolean(account?.isSuper)};
+    if(!guestToken){try{window.sessionStorage.setItem(selectedClubKey,club.id);}catch{}}
     clearClub(user);setView(context);await selectClub(context);
+    if(restoringClub && /^#(?:dashboard|events|announcements|about)$/.test(window.location.hash)) {
+      const section=document.querySelector(window.location.hash);
+      if(section)window.setTimeout(()=>section.scrollIntoView({behavior:'instant',block:'start'}),0);
+    } else if(!guestToken && !/^#(?:dashboard|events|announcements|about)$/.test(window.location.hash)) {
+      window.history.replaceState(null,'','#dashboard');
+    }
   }
   async function acceptUser(next) {
     if(user?.id===next?.id) {
@@ -116,19 +128,30 @@ export function createPlatform({selectClub,clearClub,toast,beforeLeave}) {
     }
   }
   async function logout() {
-    if(!beforeLeave())return;
-    try {await signOutOfficer();user=null;await home(true);toast('Signed out.');}catch{toast('Sign out did not finish. Try again.','error');}
+    confirmation('Sign out of Club Link?','You can sign back in later, but any unsaved changes will be discarded.',async()=>{
+      if(!beforeLeave())throw new Error('Save or discard your unsaved changes before signing out.');
+      try {await signOutOfficer();user=null;await home(true);toast('Signed out.');}catch{throw new Error('Sign out did not finish. Try again.');}
+    });
   }
-  function signup() {$('signup-form').reset();message('signup-error');message('signup-status');show('signup-dialog');}
+  function signup() {$('signup-form').reset();$('signup-form').hidden=false;$('signup-success').hidden=true;$('signup-close').textContent='Cancel';message('signup-error');message('signup-status');show('signup-dialog');}
   $('home-login').addEventListener('click',()=>document.querySelector('#open-auth-button').click());
   $('home-signup').addEventListener('click',signup);$('guest-signup').addEventListener('click',signup);
   $('home-guest').addEventListener('click',()=>openJoin('member',true));
   $('join-member').addEventListener('click',()=>openJoin('member'));$('join-officer').addEventListener('click',()=>openJoin('officer'));
   $('my-clubs-button').addEventListener('click',()=>home());$('home-retry').addEventListener('click',reloadAccount);
+  $('signup-success-login').addEventListener('click',()=>{$('signup-dialog').close();$('open-auth-button').click();});
   $('signup-form').addEventListener('submit',event=>{event.preventDefault();submit(event.currentTarget,'signup-error',async data=>{
     const result=await signUpAccount(data.get('first_name'),data.get('last_initial'),data.get('email'),data.get('password'));
+    const email=data.get('email').trim();
     $('signup-form').reset();
-    if(result.confirmationRequired)message('signup-status','Check your email to confirm your account, then return and log in. If you already have an account, log in instead.');
+    if(result.confirmationRequired) {
+      $('signup-status').textContent='Check your email to confirm your account, then return and log in.';
+      $('signup-status').hidden=true;
+      $('signup-success-email').textContent=email;
+      $('signup-form').hidden=true;
+      $('signup-success').hidden=false;
+      $('signup-close').textContent='Close';
+    }
     else {$('signup-dialog').close();await acceptUser(result.user);}
   });});
   $('join-form').addEventListener('submit',event=>{event.preventDefault();submit(event.currentTarget,'join-error',async data=>{
@@ -175,6 +198,21 @@ export function createPlatform({selectClub,clearClub,toast,beforeLeave}) {
       await clubRpc('delete_club',{p_club:target.id,p_confirmation:$('delete-name').value});await home(true);toast('Club and its content deleted. User accounts were kept.');
     },true);
   });
+  function openAccountDelete() {
+    $('account-delete-step-one').hidden=false;$('account-delete-step-two').hidden=true;$('account-delete-word').value='';$('account-delete-ack').checked=false;$('account-delete-submit').disabled=true;message('account-delete-error');show('account-delete-dialog');
+  }
+  $('delete-account-button').addEventListener('click',openAccountDelete);
+  $('account-delete-continue').addEventListener('click',()=>{$('account-delete-step-one').hidden=true;$('account-delete-step-two').hidden=false;$('account-delete-word').focus();});
+  function syncAccountDeleteButton() {$('account-delete-submit').disabled=$('account-delete-word').value.trim()!=='DELETE'||!$('account-delete-ack').checked;}
+  $('account-delete-word').addEventListener('input',syncAccountDeleteButton);$('account-delete-ack').addEventListener('change',syncAccountDeleteButton);
+  $('account-delete-step-two').addEventListener('submit',event=>{event.preventDefault();submit(event.currentTarget,'account-delete-error',async()=>{
+    if($('account-delete-word').value.trim()!=='DELETE')throw new Error('Type DELETE exactly to continue.');
+    if(!$('account-delete-ack').checked)throw new Error('Check the acknowledgement before continuing.');
+    if(!window.confirm('Final check 3 of 3: permanently delete this Club Link account? This cannot be undone.'))return;
+    await deleteAccountRequest();
+    await signOutOfficer().catch(()=>{});
+    user=null;account=null;selected=null;forgetSavedClub();await home(true);toast('Your Club Link account was deleted.');
+  });});
   $('platform-confirm-form').addEventListener('submit',event=>{event.preventDefault();submit(event.currentTarget,'platform-confirm-error',async()=>{if(!pending)return;await pending();$('platform-confirm').close();pending=null;});});
   function handleAuthState(next) {
     if(loginInProgress) return;

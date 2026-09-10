@@ -925,6 +925,12 @@ function initializeNavigation() {
 }
 
 function initializeActions() {
+  document.querySelectorAll('#brand-link, #mobile-brand-link').forEach((link) => {
+    link.addEventListener('click', (event) => {
+      event.preventDefault();
+      void platform.home();
+    });
+  });
   document.querySelector('#open-auth-button').addEventListener('click', () => {
     resetFormError('#auth-error');
     const notice = document.querySelector('#auth-config-notice');
