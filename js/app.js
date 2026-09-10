@@ -897,6 +897,9 @@ function updateActiveNavigation() {
   document.querySelectorAll('.nav-link').forEach((link) => {
     link.classList.toggle('is-active', link.dataset.section === activeSection.id);
   });
+  if (state.clubId) {
+    try { window.sessionStorage.setItem(`club-link-last-section:${state.clubId}`, activeSection.id); } catch {}
+  }
 }
 
 function queueNavigationUpdate() {

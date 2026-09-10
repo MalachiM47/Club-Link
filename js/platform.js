@@ -5,9 +5,11 @@ export function createPlatform({selectClub,clearClub,toast,beforeLeave}) {
   const $=id=>document.getElementById(id);
   const selectedClubKey='club-link-selected-club';
   const selectedClubDetailsKey='club-link-selected-club-details';
+  const lastSectionKey='club-link-last-section:';
   let user=null,account=null,selected=null,joinKind='member',guestJoin=false,revision=0,pending=null,authTransition=null,loginInProgress=false,restoringClub=false,accountReloadInProgress=false,resumeInProgress=false;
   function savedClubId() {try{return window.sessionStorage.getItem(selectedClubKey);}catch{return null;}}
   function savedClubDetails() {try{const raw=window.sessionStorage.getItem(selectedClubDetailsKey);return raw?JSON.parse(raw):null;}catch{return null;}}
+  function savedSectionId(clubId) {try{const value=window.sessionStorage.getItem(`${lastSectionKey}${clubId}`);return /^(dashboard|events|announcements|about)$/.test(value||'')?value:null;}catch{return null;}}
   function forgetSavedClub() {try{window.sessionStorage.removeItem(selectedClubKey);window.sessionStorage.removeItem(selectedClubDetailsKey);}catch{}}
   function message(id,text='') {$(id).textContent=text;$(id).hidden=!text;}
   function show(id) {if(!$(id).open)$(id).showModal();}
@@ -102,9 +104,9 @@ export function createPlatform({selectClub,clearClub,toast,beforeLeave}) {
     accountReloadInProgress=true;
     try {await reloadAccountInternal();}finally{accountReloadInProgress=false;}
   }
-  async function home(force=false) {
+  async function home(force=false,preserveSavedClub=false) {
     if(!force&&!beforeLeave())return;
-    resetPrivateDialogs();forgetSavedClub();account=null;clearClub(user);setView(null);renderHome();await reloadAccount();
+    resetPrivateDialogs();if(!preserveSavedClub)forgetSavedClub();account=null;clearClub(user);setView(null);renderHome();await reloadAccount();
   }
   async function openClub(club,guestToken=null) {
     if(!beforeLeave())return;
@@ -113,10 +115,12 @@ export function createPlatform({selectClub,clearClub,toast,beforeLeave}) {
     const context={...club,officer,guestToken,user,isSuper:Boolean(account?.isSuper)};
     if(!guestToken){try{window.sessionStorage.setItem(selectedClubKey,club.id);window.sessionStorage.setItem(selectedClubDetailsKey,JSON.stringify({id:club.id,name:club.name,description:club.description||''}));}catch{}}
     clearClub(user);setView(context);await selectClub(context);
-    if(restoringClub && /^#(?:dashboard|events|announcements|about)$/.test(window.location.hash)) {
-      const section=document.querySelector(window.location.hash);
+    const hashSection=/^#(?:dashboard|events|announcements|about)$/.test(window.location.hash)?window.location.hash.slice(1):null;
+    const sectionId=hashSection||savedSectionId(club.id);
+    if(sectionId) {
+      const section=document.getElementById(sectionId);
       if(section)window.setTimeout(()=>section.scrollIntoView({behavior:'instant',block:'start'}),0);
-    } else if(!guestToken && !/^#(?:dashboard|events|announcements|about)$/.test(window.location.hash)) {
+    } else if(!guestToken) {
       window.history.replaceState(null,'','#dashboard');
     }
   }
@@ -128,8 +132,9 @@ export function createPlatform({selectClub,clearClub,toast,beforeLeave}) {
       if (authTransition) return authTransition;
       return;
     }
+    const hadUser=Boolean(user);
     user=next;
-    const transition=home(true);
+    const transition=home(true,!hadUser&&Boolean(next));
     authTransition=transition;
     try {await transition;return transition;}
     finally {if(authTransition===transition)authTransition=null;}
@@ -250,23 +255,51 @@ export function createPlatform({selectClub,clearClub,toast,beforeLeave}) {
   $('platform-confirm-form').addEventListener('submit',event=>{event.preventDefault();submit(event.currentTarget,'platform-confirm-error',async()=>{if(!pending)return;await pending();$('platform-confirm').close();pending=null;});});
   function handleAuthState(next) {
     if(loginInProgress) return;
+    // A resumed tab can deliver a partial user object (or an empty session)
+    // before the persisted session has finished loading. Verify those events
+    // through getSession so a missing email never becomes a fake profile and
+    // a transient callback never changes the active account.
+    if(!next||!next.email||user?.id!==next.id) {void reconcileAuthState();return;}
     return acceptUser(next);
+  }
+  async function sessionExpired() {
+    if(!user)return;
+    user=null;account=null;resetPrivateDialogs();clearClub(null);setView(null);renderHome();
+    message('home-status','Your session expired while this tab was inactive. Sign in again to return to your last club and section.');
+    $('home-retry').hidden=true;
+  }
+  async function reconcileAuthState() {
+    if(resumeInProgress)return;
+    resumeInProgress=true;
+    let confirmedNoSession=0;
+    let lastError=null;
+    try {
+      for(let attempt=0;attempt<4;attempt+=1) {
+        try {
+          const authState=await getAuthState();
+          if(authState.user) {
+            const verifiedUser=authState.user.email||!user?.email?authState.user:{...authState.user,email:user.email};
+            if(user?.id===verifiedUser.id){user=verifiedUser;await reloadAccount();}
+            else await acceptUser(verifiedUser);
+            return;
+          }
+          confirmedNoSession+=1;
+        } catch(error) {lastError=error;}
+        if(attempt<3) {
+          try {await refreshAuthState();}catch{}
+          await new Promise(resolve=>window.setTimeout(resolve,300*2**attempt));
+        }
+      }
+      if(confirmedNoSession>=2) await sessionExpired();
+      else if(lastError) console.warn('[Club Link] Could not verify the saved session.',{code:lastError?.code??null,message:lastError?.message??'Unknown session error'});
+    } finally {resumeInProgress=false;}
   }
   function resumeAfterVisibilityChange() {
     if(document.visibilityState!=='visible'||accountReloadInProgress||resumeInProgress)return;
     // Supabase refreshes persisted sessions lazily after a background tab is
     // resumed. Re-run the account/RLS read so the selected club is restored
     // instead of leaving the member on the My Clubs error state.
-    resumeInProgress=true;
-    void (async()=>{
-      try {
-        if(!user) {
-          const authState=await getAuthState();
-          if(authState.user){user=authState.user;clearClub(user);}
-        }
-        if(user) await reloadAccount();
-      } finally {resumeInProgress=false;}
-    })();
+    void reconcileAuthState();
   }
   document.addEventListener('visibilitychange',resumeAfterVisibilityChange);
   window.addEventListener('pageshow',resumeAfterVisibilityChange);
