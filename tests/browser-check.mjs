@@ -155,11 +155,12 @@ try{
     assert(await ev(cdp,"document.querySelector('.nav-link.is-active').dataset.section==='dashboard'"),'Dashboard navigation incorrect');
     await ev(cdp,"document.querySelector('#next-event-officer-notes button').click()");
     await noOverflow(cdp,width);await shot(cdp,'agenda-'+width);
+    await fill(cdp,'meeting-started-time','11:45');await fill(cdp,'meeting-ended-time','12:30');
     await click(cdp,'agenda-add');await until(cdp,"document.querySelectorAll('.agenda-item').length===2");
     await ev(cdp,"(()=>{const fields=[...document.querySelectorAll('.agenda-item')].at(-1).querySelectorAll('input,textarea');['Second topic','Plan supplies','Decision made'].forEach((v,i)=>{fields[i].value=v;fields[i].dispatchEvent(new Event('input',{bubbles:true}));});})()");
     await ev(cdp,"document.querySelectorAll('.agenda-item')[1].querySelector('button').click()");
     await submit(cdp,'agenda-form');await until(cdp,"document.querySelector('#agenda-status').textContent==='All notes saved.'");
-    assert(await ev(cdp,"window.__fixture.db.meeting_agenda_items[0].title==='Second topic' && window.__fixture.db.meeting_agenda_items[0].secretary_notes==='Decision made'"),'Agenda reorder/save failed');
+    assert(await ev(cdp,"Boolean(window.__fixture.db.meeting_agenda_items[0] && window.__fixture.db.meeting_agenda_items[0].title==='Second topic' && window.__fixture.db.meeting_agenda_items[0].secretary_notes==='Decision made' && window.__fixture.db.meeting_minutes.find(x=>x.meeting_id==='meeting-a')?.meeting_started_time==='11:45' && window.__fixture.db.meeting_minutes.find(x=>x.meeting_id==='meeting-a')?.meeting_ended_time==='12:30')"),'Agenda timing or reorder/save failed');
     await ev(cdp,"(()=>{window.__fixture.fail=true;const field=document.querySelector('.agenda-item textarea');field.value='Unsaved but retained';field.dispatchEvent(new Event('input',{bubbles:true}));})()");
     await submit(cdp,'agenda-form');await until(cdp,"!document.querySelector('#agenda-error').hidden");
     assert(await ev(cdp,"document.querySelector('.agenda-item textarea').value==='Unsaved but retained'"),'Failed save lost draft');

@@ -363,7 +363,8 @@
   </dialog>
   <dialog class="dialog agenda-dialog" id="agenda-dialog" aria-labelledby="agenda-title" data-brand-ignore>
     <div class="dialog-card"><div class="dialog-header"><div><p class="eyebrow">Officers only</p><h2 id="agenda-title">Meeting agenda</h2></div><button class="button button-secondary" id="agenda-close" type="button">Close</button></div>
-      <p class="dialog-intro">Add talking points and record notes underneath each one. Save before closing.</p>
+      <p class="dialog-intro">Record the actual meeting times, then add talking points and notes. Save before closing.</p>
+      <section class="meeting-timing" aria-labelledby="meeting-timing-title"><div><h3 id="meeting-timing-title">Meeting minutes</h3><p>Use these fields to record when the meeting actually started and ended.</p></div><div class="meeting-timing-fields"><div class="field"><label for="meeting-started-time">Started</label><input id="meeting-started-time" type="time" step="60" autocomplete="off"></div><div class="field"><label for="meeting-ended-time">Ended</label><input id="meeting-ended-time" type="time" step="60" autocomplete="off"></div></div></section>
       <form id="agenda-form"><div id="agenda-items"></div><button class="button button-secondary" id="agenda-add" type="button">Add talking point</button><p id="agenda-error" class="form-error" role="alert" hidden></p><div class="agenda-save-bar"><span id="agenda-status" role="status"></span><button class="button button-primary" id="agenda-save" type="submit">Save notes</button></div></form>
     </div>
   </dialog>

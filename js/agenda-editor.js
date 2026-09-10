@@ -8,9 +8,14 @@ export function createAgendaEditor(onSaved) {
   const status=document.querySelector('#agenda-status');
   const error=document.querySelector('#agenda-error');
   const save=document.querySelector('#agenda-save');
+  const started=document.querySelector('#meeting-started-time');
+  const ended=document.querySelector('#meeting-ended-time');
   let meeting=null, items=[], dirty=false, busy=false;
+  const controls=()=>[...form.querySelectorAll('input,textarea,button'),started,ended];
   const markDirty=()=>{dirty=true;status.textContent='Unsaved changes';};
   function render(focusId) {
+    started.value=(meeting?.meeting_started_time||'').slice(0,5);
+    ended.value=(meeting?.meeting_ended_time||'').slice(0,5);
     container.replaceChildren();
     if (!items.length) {const empty=document.createElement('p');empty.textContent='No talking points yet. Add the first one below.';container.append(empty);}
     items.forEach((item,index)=>{
@@ -53,25 +58,33 @@ export function createAgendaEditor(onSaved) {
     if(items.length>=100){error.hidden=false;error.textContent='Use at most 100 talking points.';return;}
     const item={id:crypto.randomUUID(),title:'',talking_point:'',secretary_notes:''};items.push(item);markDirty();render(item.id);
   });
+  started.addEventListener('input',()=>{if(!meeting)return;meeting.meeting_started_time=started.value||null;markDirty();});
+  ended.addEventListener('input',()=>{if(!meeting)return;meeting.meeting_ended_time=ended.value||null;markDirty();});
   form.addEventListener('submit',async event=>{
     event.preventDefault();if(busy||!meeting)return;
     error.hidden=true;busy=true;save.disabled=true;status.textContent='Saving…';
+    if ((started.value && !ended.value) || (!started.value && ended.value)) {
+      error.hidden=false;error.textContent='Enter both a start time and an end time to record meeting minutes.';status.textContent='Not saved';busy=false;save.disabled=false;return;
+    }
+    if (started.value && ended.value && ended.value < started.value) {
+      error.hidden=false;error.textContent='The end time must be after the start time.';status.textContent='Not saved';busy=false;save.disabled=false;return;
+    }
     const target=meeting;
     // Freeze fields while saving so keystrokes cannot be mistaken for saved content.
-    form.querySelectorAll('input,textarea,button').forEach(node=>node.disabled=true);
+    controls().forEach(node=>node.disabled=true);
     try {
-      const version=await saveMeetingAgenda(target.id,items.map(({id,title,talking_point,secretary_notes})=>({id,title,talking_point,secretary_notes})),target.updated_at);
+      const version=await saveMeetingAgenda(target.id,items.map(({id,title,talking_point,secretary_notes})=>({id,title,talking_point,secretary_notes})),target.updated_at,started.value||null,ended.value||null);
       if(meeting!==target)return;
       meeting.updated_at=version;dirty=false;status.textContent='All notes saved.';await onSaved();
     } catch(problem) {
       if(meeting!==target)return;
       error.hidden=false;error.textContent=problem.code==='40001'?'Another officer changed this meeting. Your draft is still here. Copy any unsaved text, then close and reopen the agenda to load the latest version.':'Notes could not be saved. Your draft is still here. Check your connection and permission, then try again.';
       status.textContent='Not saved';
-    } finally {busy=false;save.disabled=false;form.querySelectorAll('input,textarea,button').forEach(node=>node.disabled=false);render();}
+    } finally {busy=false;save.disabled=false;controls().forEach(node=>node.disabled=false);render();}
   });
   window.addEventListener('beforeunload',event=>{if(dirty){event.preventDefault();event.returnValue='';}});
   return {
-    open(event,points) {if(dialog.open&&!discard())return;meeting={...event};items=points.map(item=>({...item}));dirty=false;error.hidden=true;status.textContent='Changes are saved only when you choose Save notes.';document.querySelector('#agenda-title').textContent=`${event.name} · ${new Date(event.event_date).toLocaleDateString()}`;render();dialog.showModal();},
+    open(event,points=[],timing=null) {if(dialog.open&&!discard())return;meeting={...event,...(timing||{})};items=points.map(item=>({...item}));dirty=false;error.hidden=true;status.textContent='Changes are saved only when you choose Save notes.';document.querySelector('#agenda-title').textContent=`${event.name} · ${new Date(event.event_date).toLocaleDateString()}`;render();dialog.showModal();},
     discard,
     get dirty(){return dirty;},
   };

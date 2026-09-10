@@ -16,6 +16,7 @@ const requiredFiles = [
   'js/agenda-editor.js',
   'api/access.js',
   'migrations/001_multi_club.sql',
+  'migrations/002_meeting_minutes_times.sql',
   'scripts/build.mjs',
   'docs/MIGRATION.md',
   'docs/IMPLEMENTATION.md',

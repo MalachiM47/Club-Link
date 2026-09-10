@@ -1,6 +1,7 @@
 import {
   isSupabaseConfigured,
   loadOfficerMeetingDetails,
+  loadOfficerMeetingTimes,
   loadPublicData,
   removeAnnouncement,
   removeEvent,
@@ -38,6 +39,7 @@ const state = {
   dataError: null,
   pendingDelete: null,
   meetingDetails: new Map(),
+  meetingTimes: new Map(),
   meetingDetailsError: null,
 };
 
@@ -198,7 +200,7 @@ function createOfficerNotes(event, dark = false) {
   edit.className = dark ? 'button button-on-dark' : 'button button-secondary';
   edit.textContent = state.meetingDetailsError ? 'Private agenda unavailable' : 'Open officer-only agenda';
   edit.disabled = Boolean(state.meetingDetailsError);
-  edit.addEventListener('click', () => agenda.open(event, state.meetingDetails.get(event.id) || []));
+  edit.addEventListener('click', () => agenda.open(event, state.meetingDetails.get(event.id) || [], state.meetingTimes.get(event.id)));
   wrapper.append(edit);
   return wrapper;
 }
@@ -574,7 +576,7 @@ function clearClub(user) {
   for (const id of ['event-dialog','announcement-dialog','club-dialog','confirm-dialog']) {
     const dialog = document.getElementById(id); dialog.close(); dialog.querySelector('form')?.reset();
   }
-  Object.assign(state, {clubId:null,guestToken:null,isSuper:false,user,officer:null,events:[],announcements:[],settings:null,dataError:null,meetingDetails:new Map(),meetingDetailsError:null,pendingDelete:null});
+  Object.assign(state, {clubId:null,guestToken:null,isSuper:false,user,officer:null,events:[],announcements:[],settings:null,dataError:null,meetingDetails:new Map(),meetingTimes:new Map(),meetingDetailsError:null,pendingDelete:null});
   elements.eventSearch.value='';elements.eventRange.value='all';
   renderAll();
 }
@@ -584,11 +586,12 @@ async function selectClub(context) {
   renderAll();await refreshPublicData();
 }
 async function refreshOfficerMeetingDetails(ticket=viewRevision) {
-  state.meetingDetails = new Map();state.meetingDetailsError = null;
+  state.meetingDetails = new Map();state.meetingTimes = new Map();state.meetingDetailsError = null;
   if (!state.officer || !state.clubId) return;
   try {
-    const details = await loadOfficerMeetingDetails(state.clubId);
+    const [details,times] = await Promise.all([loadOfficerMeetingDetails(state.clubId),loadOfficerMeetingTimes(state.clubId)]);
     if(ticket!==viewRevision)return;
+    for(const event of times) state.meetingTimes.set(event.meeting_id,event);
     for(const item of details) {
       if(!state.meetingDetails.has(item.meeting_id))state.meetingDetails.set(item.meeting_id,[]);
       state.meetingDetails.get(item.meeting_id).push(item);
@@ -615,7 +618,7 @@ async function refreshPublicData() {
     await refreshOfficerMeetingDetails(ticket);
   } catch(error) {
     if(ticket!==viewRevision)return;
-    state.events=[];state.announcements=[];state.settings=null;state.meetingDetails=new Map();state.officer=null;state.dataError=error;
+    state.events=[];state.announcements=[];state.settings=null;state.meetingDetails=new Map();state.meetingTimes=new Map();state.officer=null;state.dataError=error;
     agenda.discard(true);
     showToast(state.guestToken?'Guest access expired or is unavailable. Return to Club Link and enter the current Member Code.':'Club information could not be loaded. Check your connection and membership.','error');
   }

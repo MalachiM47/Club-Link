@@ -19,7 +19,7 @@ The prior live read-only inspection returned one BSU settings row, one event, an
 
 ## Database changes
 
-New public tables: `clubs`, `profiles`, `app_admins`, `club_memberships`, and `meeting_agenda_items`.
+New public tables: `clubs`, `profiles`, `app_admins`, `club_memberships`, `meeting_agenda_items`, and officer-only `meeting_minutes`.
 
 New private tables: `club_access_codes`, `guest_sessions`, `code_attempts`, `legacy_bsu_snapshot`, and `club_link_migrations`.
 
@@ -42,6 +42,7 @@ Memberships have a unique club/user primary key and only `member`/`officer` role
 - Officers manage normal content, agendas, and codes only in clubs where they have an officer membership.
 - Super Admin is checked from `app_admins`, independently of memberships. Only this permission can invoke club creation/deletion. The table starts empty until the owner inserts their existing UUID.
 - Private agendas are separate from member content. Direct agenda writes are revoked; a version-checked, atomic RPC validates officer access and applies the whole ordered list.
+- Meeting start/end times live in the RLS-protected `meeting_minutes` table and are saved atomically with the agenda. Members cannot select or write them.
 - Old permissive single-club policies are removed inside the migration transaction. Leaving them in place would make the new policies ineffective.
 - Browser roles cannot modify memberships directly. Code redemption is executable only by the server's `service_role`; it upgrades one club/user row and never downgrades an existing officer.
 - The server gets the account UUID from Supabase Auth's verified user response, never from request body fields. Its network rate-limit bucket is a keyed hash, not a client-supplied identifier.
@@ -70,6 +71,7 @@ Failed code guesses increment persistent rate counters: 12 requests per IP hash,
 Added:
 
 - `migrations/001_multi_club.sql`
+- `migrations/002_meeting_minutes_times.sql`
 - `api/access.js`
 - `js/platform.js`, `js/agenda-editor.js`
 - `scripts/build.mjs`
@@ -94,7 +96,7 @@ The browser fixtures are loaded only by tests. They do not substitute for the se
 ## Required owner actions
 
 1. Back up and review the existing Supabase tables.
-2. Run the complete `001_multi_club.sql` in the existing project's SQL Editor once.
+2. Run the complete `001_multi_club.sql`, then the complete `002_meeting_minutes_times.sql`, in the existing project's SQL Editor.
 3. Copy your existing Auth user UUID and insert only that UUID into `app_admins` using the template in MIGRATION.md.
 4. Run the preservation comparison queries and confirm BSU membership/notes.
 5. Configure email signup/confirmation and production Site URL in Supabase.

@@ -26,6 +26,8 @@ It is a single transaction: errors roll back the changes. A completed migration 
 
 For a completely new, empty staging project only: run `supabase-setup.sql` first, then this migration. The baseline now refuses to run after multi-club installation.
 
+After the multi-club migration succeeds, run [`migrations/002_meeting_minutes_times.sql`](../migrations/002_meeting_minutes_times.sql) as a second complete SQL operation. It adds officer-only start and end time fields for meeting minutes and extends the agenda save RPC atomically. It does not expose those fields to public members. The file is also a single transaction and refuses to run twice.
+
 ### What this does to BSU
 
 - Creates a club with `legacy_key = 'bsu'` and the name Black Student Union.

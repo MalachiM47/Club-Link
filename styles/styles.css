@@ -892,12 +892,19 @@ h3 {
 }
 
 .officer-notes {
+  display: inline-flex;
+  width: fit-content;
+  max-width: 100%;
   margin-top: 16px;
   border: 1px solid #c8dcf3;
   border-radius: 8px;
   background: var(--blue-50);
   color: var(--ink-800);
 }
+
+#next-event-officer-notes { width: fit-content; max-width: 100%; }
+#next-event-officer-notes .officer-notes { margin-top: 14px; }
+#next-event-officer-notes .button { max-width: 100%; overflow-wrap: anywhere; }
 
 .officer-notes summary {
   padding: 11px 13px;
@@ -2006,6 +2013,12 @@ h3 {
 .code-row code { display: block; font-size: clamp(1.3rem,5vw,1.9rem); letter-spacing: .05em; margin: 12px 0 20px; user-select: all; }
 .agenda-dialog { width: min(900px,calc(100% - 32px)); max-width: 900px; }
 .agenda-dialog .dialog-card { width: 100%; }
+.meeting-timing { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin: 0 0 20px; padding: 16px 18px; border: 1px solid var(--border,#dce2e8); border-radius: 8px; background: var(--surface-muted,#f6f8fa); }
+.meeting-timing h3 { margin: 0 0 4px; font-size: 1rem; }
+.meeting-timing p { margin: 0; color: var(--ink-600); font-size: .86rem; }
+.meeting-timing-fields { display: flex; gap: 12px; flex: 0 0 auto; }
+.meeting-timing-fields .field { min-width: 132px; margin: 0; }
+.meeting-timing-fields input { min-height: 42px; }
 .agenda-item { padding: 20px; margin-bottom: 20px; border: 1px solid var(--border,#dce2e8); border-radius: 8px; }
 .agenda-item-top { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
 .agenda-item .field:last-child { margin-bottom: 0; }
@@ -2020,6 +2033,9 @@ h3 {
   .club-card { padding: 20px; }
   .agenda-dialog { width: calc(100% - 16px); }
   .agenda-item { padding: 14px; }
+  .meeting-timing { display: block; padding: 14px; }
+  .meeting-timing-fields { margin-top: 14px; }
+  .meeting-timing-fields .field { min-width: 0; flex: 1; }
   .agenda-item-top .button { min-height: 44px; padding: 8px; }
   .agenda-save-bar { bottom: -20px; }
 }

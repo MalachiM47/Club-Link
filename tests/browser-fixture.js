@@ -13,6 +13,7 @@
       {id:'event-b',club_id:'club-b',event_type:'other',name:'Club B only event',event_date:date,updated_at:date,location:'Room B',description:''}],
     announcements:[{id:'announcement-a',club_id:'club-a',title:'Welcome A',body:'A member announcement',posted_at:date}],
     meeting_agenda_items:[{id:'point-a',meeting_id:'meeting-a',title:'First point',talking_point:'Original agenda',secretary_notes:'Private original notes',sort_order:0}],
+    meeting_minutes:[],
   };
   let callback=()=>{};
   window.__fixture={db,calls:[],fail:false,guest:false};
@@ -51,7 +52,7 @@
       if(name==='save_meeting_agenda'){
         db.meeting_agenda_items=db.meeting_agenda_items.filter(x=>x.meeting_id!==args.p_meeting);
         db.meeting_agenda_items.push(...args.p_items.map((x,index)=>({...x,meeting_id:args.p_meeting,sort_order:index})));
-        const event=db.events.find(x=>x.id===args.p_meeting);event.updated_at=new Date().toISOString();return {data:event.updated_at};
+        const event=db.events.find(x=>x.id===args.p_meeting);const existing=db.meeting_minutes.find(x=>x.meeting_id===args.p_meeting);if(existing)Object.assign(existing,{meeting_started_time:args.p_started_time||null,meeting_ended_time:args.p_ended_time||null});else db.meeting_minutes.push({meeting_id:args.p_meeting,meeting_started_time:args.p_started_time||null,meeting_ended_time:args.p_ended_time||null});event.updated_at=new Date().toISOString();return {data:event.updated_at};
       }
       if(name==='create_club'){const id=crypto.randomUUID();db.clubs.push({id,name:args.p_name,description:args.p_description});db.club_settings.push({club_id:id,club_name:args.p_name,color_scheme:'default',club_description:args.p_description,membership_info:'Ask an officer',contact_email:''});return {data:id};}
       if(name==='delete_club'){db.clubs=db.clubs.filter(x=>x.id!==args.p_club);return {data:null};}

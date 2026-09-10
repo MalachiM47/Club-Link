@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {loadPublicData,loadOfficerMeetingDetails,removeAnnouncement,removeEvent,saveAnnouncement,saveClubInformation,saveEvent,saveMeetingAgenda} from '../js/database.js';
+import {loadPublicData,loadOfficerMeetingDetails,loadOfficerMeetingTimes,removeAnnouncement,removeEvent,saveAnnouncement,saveClubInformation,saveEvent,saveMeetingAgenda} from '../js/database.js';
 function mock() {
   const calls=[];
   class Query {
@@ -17,6 +17,7 @@ test('all normal club reads are filtered on the database query',async()=>{
  const {client,calls}=mock();await loadPublicData('club-a',null,client);
  for(const table of ['events','announcements','club_settings'])assert.ok(calls.some(x=>x.table===table&&x.method==='eq'&&x.args[0]==='club_id'&&x.args[1]==='club-a'));
  const privateDb=mock();await loadOfficerMeetingDetails('club-a',privateDb.client);assert.ok(privateDb.calls.some(x=>x.method==='eq'&&x.args[0]==='events.club_id'));
+ const timesDb=mock();await loadOfficerMeetingTimes('club-a',timesDb.client);assert.ok(timesDb.calls.some(x=>x.method==='eq'&&x.args[0]==='events.club_id'&&x.args[1]==='club-a'));
 });
 test('guest read uses a token-bound RPC with no caller-selected club argument',async()=>{
  const {client,calls}=mock();await loadPublicData('club-a','guest-token',client);assert.deepEqual(calls,[{name:'guest_club_data',args:{p_token:'guest-token'}}]);
@@ -38,7 +39,7 @@ test('club settings update only the selected club, including name and palette',a
 });
 test('agenda save is one atomic version-checked RPC with per-point notes',async()=>{
  const {client,calls}=mock();const items=[{id:'point',title:'Topic',talking_point:'Discuss',secretary_notes:'Recorded'}];
- await saveMeetingAgenda('meeting',items,'version-1',client);assert.deepEqual(calls,[{name:'save_meeting_agenda',args:{p_meeting:'meeting',p_items:items,p_expected:'version-1'}}]);
+ await saveMeetingAgenda('meeting',items,'version-1','09:05','10:15',client);assert.deepEqual(calls,[{name:'save_meeting_agenda',args:{p_meeting:'meeting',p_items:items,p_expected:'version-1',p_started_time:'09:05',p_ended_time:'10:15'}}]);
 });
 test('missing club IDs fail closed before querying',async()=>{
  const {client}=mock();await assert.rejects(()=>loadPublicData(null,null,client),/Choose a club/);await assert.rejects(()=>removeEvent('id',null,client),/Choose a club/);

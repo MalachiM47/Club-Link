@@ -14,6 +14,8 @@ const legacy=(await db.query(`insert into events(name,event_type,event_date,loca
 await db.query(`insert into event_officer_details(event_id,notes,secretary_notes) values($1,'Original agenda','Original secretary notes')`,[legacy.id]);
 const migrationSql=await readFile('migrations/001_multi_club.sql','utf8');
 await db.exec(migrationSql);
+const minutesMigrationSql=await readFile('migrations/002_meeting_minutes_times.sql','utf8');
+await db.exec(minutesMigrationSql);
 console.log('Migration applies to an existing single-club schema.');
 for (const table of ['events','announcements','club_settings','event_officer_details','admins']) {
   const before=(await db.query('select records from private.legacy_bsu_snapshot where source_table=$1',[table])).rows[0].records;
@@ -86,8 +88,12 @@ for(let i=0;i<12;i++) await redeem('MEM-xxx','member',null,'rate-test');
 assert.equal((await redeem('MEM-xxx','member',null,'rate-test')).error,'rate_limited');
 const version=(await db.query('select updated_at from events where id=$1',[legacy.id])).rows[0].updated_at;
 const points=[{id:crypto.randomUUID(),title:'First',talking_point:'Discuss',secretary_notes:'Private answer'},{id:crypto.randomUUID(),title:'Second',talking_point:'Review',secretary_notes:''}];
-await denied(users[2],'select save_meeting_agenda($1,$2,$3)',[legacy.id,JSON.stringify(points),version]);
-const saved=(await asUser(users[1],'select save_meeting_agenda($1,$2,$3) version',[legacy.id,JSON.stringify(points),version])).rows[0].version;
+await denied(users[2],'select save_meeting_agenda($1,$2,$3,$4,$5)',[legacy.id,JSON.stringify(points),version,'09:05','10:15']);
+const saved=(await asUser(users[1],'select save_meeting_agenda($1,$2,$3,$4,$5) version',[legacy.id,JSON.stringify(points),version,'09:05','10:15'])).rows[0].version;
+const meetingTimes=(await db.query('select meeting_started_time,meeting_ended_time from meeting_minutes where meeting_id=$1',[legacy.id])).rows[0];
+assert.equal(meetingTimes.meeting_started_time,'09:05:00');assert.equal(meetingTimes.meeting_ended_time,'10:15:00');
+assert.equal((await asUser(users[2],'select * from meeting_minutes')).rows.length,0);
+await denied(users[1],'select save_meeting_agenda($1,$2,$3,$4,$5)',[legacy.id,JSON.stringify(points),version,'10:15','09:05']);
 await denied(users[1],'select save_meeting_agenda($1,$2,$3)',[legacy.id,JSON.stringify(points),version]);
 await asUser(users[1],'select save_meeting_agenda($1,$2,$3)',[legacy.id,JSON.stringify(points.reverse()),saved]);
 assert.equal((await db.query('select title from meeting_agenda_items where meeting_id=$1 order by sort_order',[legacy.id])).rows[0].title,'Second');
@@ -105,5 +111,7 @@ assert.equal((await db.query('select count(*)::int n from auth.users')).rows[0].
 assert.equal((await db.query('select count(*)::int n from events where club_id=$1',[a])).rows[0].n,1);
 console.log('PASS: BSU preservation, no automatic Super Admin, multi-club RLS, member/officer isolation, guest scope, code formats/rotation/rate limits, upgrades, atomic agendas/concurrency, scoped deletion.');
 await assert.rejects(()=>db.exec(migrationSql),/already applied/);
+await db.exec('rollback');
+await assert.rejects(()=>db.exec(minutesMigrationSql),/already applied/);
 await db.exec('rollback');
 await db.close();

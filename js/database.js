@@ -34,13 +34,24 @@ export async function loadPublicData(clubId, guestToken=null, supabase=getSupaba
 export async function loadOfficerMeetingDetails(clubId, supabase=getSupabaseClient()) {
   return unwrap(await supabase.from('meeting_agenda_items').select('id,meeting_id,title,talking_point,secretary_notes,sort_order,events!inner(club_id)').eq('events.club_id',requireClub(clubId)).order('sort_order'))||[];
 }
+export async function loadOfficerMeetingTimes(clubId, supabase=getSupabaseClient()) {
+  return unwrap(await supabase.from('meeting_minutes').select('meeting_id,meeting_started_time,meeting_ended_time,events!inner(club_id)').eq('events.club_id',requireClub(clubId)))||[];
+}
 export async function saveEvent(event, supabase=getSupabaseClient()) {
   const payload={club_id:requireClub(event.club_id),event_type:event.event_type,name:event.event_type==='meeting'?'Meeting':event.name.trim(),event_date:event.event_date,location:event.location.trim(),description:event.description.trim()||null};
   const query=event.id?supabase.from('events').update(payload).eq('id',event.id).eq('club_id',event.club_id):supabase.from('events').insert(payload);
   return unwrap(await query.select('id,updated_at').single());
 }
-export async function saveMeetingAgenda(meetingId,items,expected,supabase=getSupabaseClient()) {
-  return unwrap(await supabase.rpc('save_meeting_agenda',{p_meeting:meetingId,p_items:items,p_expected:expected}));
+export async function saveMeetingAgenda(meetingId,items,expected,startedTime=null,endedTime=null,supabase=null) {
+  // Keep the original four-argument test/integration contract usable while
+  // supporting the timing-aware RPC. A Supabase client passed in the fourth
+  // position means the caller is using the legacy contract.
+  const legacyClientCall=startedTime&&typeof startedTime==='object'&&typeof startedTime.rpc==='function';
+  if(legacyClientCall){supabase=startedTime;startedTime=null;endedTime=null;}
+  supabase ??= getSupabaseClient();
+  const args={p_meeting:meetingId,p_items:items,p_expected:expected};
+  if(!legacyClientCall){args.p_started_time=startedTime||null;args.p_ended_time=endedTime||null;}
+  return unwrap(await supabase.rpc('save_meeting_agenda',args));
 }
 export async function removeEvent(id,clubId,supabase=getSupabaseClient()) {
   return unwrap(await supabase.from('events').delete().eq('id',id).eq('club_id',requireClub(clubId)).select('id').single());

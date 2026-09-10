@@ -3,7 +3,7 @@ import {getAuthState,signInOfficer,signOutOfficer,signUpAccount,watchAuthState} 
 
 export function createPlatform({selectClub,clearClub,toast,beforeLeave}) {
   const $=id=>document.getElementById(id);
-  let user=null,account=null,selected=null,joinKind='member',guestJoin=false,revision=0,pending=null;
+  let user=null,account=null,selected=null,joinKind='member',guestJoin=false,revision=0,pending=null,authTransition=null,loginInProgress=false;
   function message(id,text='') {$(id).textContent=text;$(id).hidden=!text;}
   function show(id) {if(!$(id).open)$(id).showModal();}
   function resetPrivateDialogs() {
@@ -25,11 +25,14 @@ export function createPlatform({selectClub,clearClub,toast,beforeLeave}) {
   function renderHome() {
     $('welcome-actions').hidden=Boolean(user);$('account-actions').hidden=!user;
     $('create-club').hidden=!account?.isSuper;
-    $('home-title').textContent=user?'My Clubs':'Your clubs, in one place.';
+    const clubs=account?.clubs||[];
+    const hasLoadedAccount=Boolean(user&&account);
+    const hasClubs=clubs.length>0;
+    $('home-title').textContent=!user?'Your clubs, in one place.':hasLoadedAccount&&!hasClubs?'Join your first club':'My Clubs';
     const name=account?.profile?`${account.profile.first_name} ${account.profile.last_initial}.`:null;
-    $('home-copy').textContent=user?(name?`${name}, choose a club to view its schedule and updates.`:'Choose a club to view its schedule and updates.'):'Find your club’s schedule, announcements, and meeting information.';
+    $('home-copy').textContent=!user?'Find your club’s schedule, announcements, and meeting information.':!hasClubs&&hasLoadedAccount?'Enter a Member Code from a club officer to save that club to your account.':(name?`${name}, choose a club to view its schedule and updates.`:'Choose a club to view its schedule and updates.');
     $('my-club-cards').replaceChildren();
-    for(const club of account?.clubs||[]) {
+    for(const club of clubs) {
       const card=document.createElement('button');card.type='button';card.className='club-card';
       const title=document.createElement('h2');title.textContent=club.name;
       const role=document.createElement('span');role.className='club-role';role.textContent=account.isSuper?'Super Admin':account.memberships.find(item=>item.club_id===club.id)?.role==='officer'?'Officer':'Member';
@@ -42,8 +45,19 @@ export function createPlatform({selectClub,clearClub,toast,beforeLeave}) {
     account=null;renderHome();message('home-status',user?'Loading your clubs…':'');$('home-retry').hidden=true;
     if(!user)return;
     try {
-      const data=await loadAccount(user.id);if(ticket!==revision)return;
-      account=data;renderHome();message('home-status',data.clubs.length?'':'No clubs joined yet. Use a Member Code or Officer Code to get started.');
+      let data;
+      let lastError;
+      // A freshly established Auth session can take one request cycle to be
+      // available to RLS policies. Retry once so the normal first-login path
+      // does not require a manual refresh, while still surfacing persistent
+      // configuration or migration errors.
+      for(let attempt=0;attempt<2;attempt+=1) {
+        try {data=await loadAccount(user.id);break;}
+        catch(error) {lastError=error;if(attempt===0)await new Promise(resolve=>window.setTimeout(resolve,180));}
+      }
+      if(!data)throw lastError||new Error('Club account could not be loaded.');
+      if(ticket!==revision)return;
+      account=data;renderHome();message('home-status',data.clubs.length?'':'No clubs yet. Use Join a Club and enter the Member Code shared by an officer.');
     } catch {
       if(ticket!==revision)return;
       message('home-status','Your clubs could not be loaded. Check your connection. If this is the first multi-club launch, the site owner must apply the database migration.');$('home-retry').hidden=false;
@@ -61,8 +75,18 @@ export function createPlatform({selectClub,clearClub,toast,beforeLeave}) {
     clearClub(user);setView(context);await selectClub(context);
   }
   async function acceptUser(next) {
-    if(user?.id===next?.id)return;
-    user=next;await home(true);
+    if(user?.id===next?.id) {
+      // The explicit login handler and Supabase's SIGNED_IN callback can both
+      // observe the same user. Share the in-flight transition instead of
+      // starting a second account load that could overwrite a successful one.
+      if (authTransition) return authTransition;
+      return;
+    }
+    user=next;
+    const transition=home(true);
+    authTransition=transition;
+    try {await transition;return transition;}
+    finally {if(authTransition===transition)authTransition=null;}
   }
   function openJoin(kind,guest=false) {
     joinKind=kind;guestJoin=guest;$('join-form').reset();message('join-error');
@@ -77,10 +101,19 @@ export function createPlatform({selectClub,clearClub,toast,beforeLeave}) {
     finally{button.disabled=false;}
   }
   async function login(event) {
-    event.preventDefault();await submit(event.currentTarget,'auth-error',async data=>{
-      const result=await signInOfficer(data.get('email'),data.get('password'));
-      $('auth-form').reset();$('auth-dialog').close();await acceptUser(result.user);
-    });
+    event.preventDefault();
+    loginInProgress=true;
+    try {
+      await submit(event.currentTarget,'auth-error',async data=>{
+        const result=await signInOfficer(data.get('email'),data.get('password'));
+        $('auth-form').reset();$('auth-dialog').close();await acceptUser(result.user);
+      });
+    } finally {
+      // The auth callback is intentionally deferred while the explicit login
+      // flow is resolving. Its user object can be incomplete in some browser
+      // versions, so the sign-in response remains the canonical account data.
+      loginInProgress=false;
+    }
   }
   async function logout() {
     if(!beforeLeave())return;
@@ -143,9 +176,13 @@ export function createPlatform({selectClub,clearClub,toast,beforeLeave}) {
     },true);
   });
   $('platform-confirm-form').addEventListener('submit',event=>{event.preventDefault();submit(event.currentTarget,'platform-confirm-error',async()=>{if(!pending)return;await pending();$('platform-confirm').close();pending=null;});});
+  function handleAuthState(next) {
+    if(loginInProgress) return;
+    return acceptUser(next);
+  }
   return {login,logout,home,
     updateName(name){if(selected){selected.name=name;$('selected-club-name').textContent=name;}},
     updateAccess(officer,isSuper){if(selected){selected.officer=officer;$('manage-codes').hidden=!officer;$('delete-club').hidden=!isSuper;$('selected-club-role').textContent=selected.guestToken?'Guest view':isSuper?'Super Admin':officer?'Officer':'Member';}},
-    async start(){setView(null);clearClub(null);if(!isSupabaseConfigured)return;try{user=(await getAuthState()).user;clearClub(user);await reloadAccount();}catch{message('home-status','Your session could not be loaded. Try signing in again.');}watchAuthState(acceptUser);},
+    async start(){setView(null);clearClub(null);if(!isSupabaseConfigured)return;try{user=(await getAuthState()).user;clearClub(user);await reloadAccount();}catch{message('home-status','Your session could not be loaded. Try signing in again.');}watchAuthState(handleAuthState);},
   };
 }

@@ -8,7 +8,21 @@ export async function getAuthState() {
 export async function signInOfficer(email,password) {
   const {data,error}=await getSupabaseClient().auth.signInWithPassword({email:email.trim(),password});
   if(error) {console.error('[Club Link] Supabase authentication failed.',{code:error.code??null,message:error.message});throw error;}
-  return {user:data.user};
+  // signInWithPassword resolves as soon as Auth has accepted the credentials,
+  // but the browser client can still be propagating the new session to its
+  // PostgREST request layer. Wait for the session to be visible before the
+  // platform starts its membership/RLS queries. This avoids a transient
+  // "clubs could not be loaded" screen on a user's first login.
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const sessionState = await getAuthState();
+    if (sessionState.user?.id === data.user?.id) break;
+    await new Promise((resolve) => globalThis.setTimeout(resolve, 40 * (attempt + 1)));
+  }
+  // Email/password sessions normally include the email on `data.user`. Keep
+  // the entered address as a display fallback for older Auth responses so the
+  // account panel never falls back to its generic placeholder initial.
+  const signedInUser=data.user?.email?data.user:{...data.user,email:email.trim()};
+  return {user:signedInUser};
 }
 export async function signUpAccount(firstName,lastInitial,email,password) {
   const {data,error}=await getSupabaseClient().auth.signUp({email:email.trim(),password,

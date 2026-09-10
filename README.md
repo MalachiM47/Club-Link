@@ -54,6 +54,7 @@ Code entry goes through the server because a browser must not choose its own use
 | `announcements` | Club-scoped updates |
 | `club_settings` | One settings row per club, including name and theme |
 | `meeting_agenda_items` | Ordered meeting points, talking text, secretary notes |
+| `meeting_minutes` | Officer-only actual start/end times for meeting minutes |
 | `event_officer_details`, `admins` | Preserved, locked legacy records |
 | `private.club_access_codes` | Recoverable codes for intentional officer sharing |
 | `private.guest_sessions` | Hashed guest tokens, club binding, expiry and generation |
@@ -91,7 +92,7 @@ Browser configuration in `js/config.js` uses exactly two browser-safe values:
 
 The new server code-entry endpoint additionally needs `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` in Vercel's private environment. Never copy the service-role key into frontend code.
 
-For a fresh empty development database, run `supabase-setup.sql` and then `migrations/001_multi_club.sql`. For the existing BSU database, run **only the migration** after backing up and checking the schema. Owner privileges require a separate explicit UUID insert.
+For a fresh empty development database, run `supabase-setup.sql`, then `migrations/001_multi_club.sql`, then `migrations/002_meeting_minutes_times.sql`. For the existing BSU database, run both migrations after backing up and checking the schema. Owner privileges require a separate explicit UUID insert.
 
 ### Local development
 
