@@ -1,12 +1,14 @@
 import {loadAccount,clubRpc,redeemCode,deleteAccount as deleteAccountRequest,isSupabaseConfigured} from './database.js';
-import {getAuthState,signInOfficer,signOutOfficer,signUpAccount,watchAuthState} from './auth.js';
+import {getAuthState,refreshAuthState,signInOfficer,signOutOfficer,signUpAccount,watchAuthState} from './auth.js';
 
 export function createPlatform({selectClub,clearClub,toast,beforeLeave}) {
   const $=id=>document.getElementById(id);
   const selectedClubKey='club-link-selected-club';
-  let user=null,account=null,selected=null,joinKind='member',guestJoin=false,revision=0,pending=null,authTransition=null,loginInProgress=false,restoringClub=false;
+  const selectedClubDetailsKey='club-link-selected-club-details';
+  let user=null,account=null,selected=null,joinKind='member',guestJoin=false,revision=0,pending=null,authTransition=null,loginInProgress=false,restoringClub=false,accountReloadInProgress=false,resumeInProgress=false;
   function savedClubId() {try{return window.sessionStorage.getItem(selectedClubKey);}catch{return null;}}
-  function forgetSavedClub() {try{window.sessionStorage.removeItem(selectedClubKey);}catch{}}
+  function savedClubDetails() {try{const raw=window.sessionStorage.getItem(selectedClubDetailsKey);return raw?JSON.parse(raw):null;}catch{return null;}}
+  function forgetSavedClub() {try{window.sessionStorage.removeItem(selectedClubKey);window.sessionStorage.removeItem(selectedClubDetailsKey);}catch{}}
   function message(id,text='') {$(id).textContent=text;$(id).hidden=!text;}
   function show(id) {if(!$(id).open)$(id).showModal();}
   function resetPrivateDialogs() {
@@ -43,41 +45,73 @@ export function createPlatform({selectClub,clearClub,toast,beforeLeave}) {
       card.append(title,role,description);card.addEventListener('click',()=>openClub(club));$('my-club-cards').append(card);
     }
   }
-  async function reloadAccount() {
+  async function reloadAccountInternal() {
     const ticket=++revision;
-    account=null;renderHome();message('home-status',user?'Loading your clubs…':'');$('home-retry').hidden=true;
+    message('home-status',user?'Loading your clubs…':'');$('home-retry').hidden=true;
     if(!user)return;
     try {
       let data;
       let lastError;
-      // A freshly established Auth session can take one request cycle to be
-      // available to RLS policies. Retry once so the normal first-login path
-      // does not require a manual refresh, while still surfacing persistent
-      // configuration or migration errors.
-      for(let attempt=0;attempt<2;attempt+=1) {
-        try {data=await loadAccount(user.id);break;}
-        catch(error) {lastError=error;if(attempt===0)await new Promise(resolve=>window.setTimeout(resolve,180));}
+      // A suspended tab can resume while Supabase is refreshing its session.
+      // Retry the account/RLS read with backoff and explicitly refresh the
+      // session between attempts before showing a persistent error state.
+      for(let attempt=0;attempt<5;attempt+=1) {
+        try {
+          const authState=await getAuthState();
+          if(!authState.user)throw new Error('Your session has ended.');
+          user=authState.user;
+          data=await loadAccount(user.id);
+          break;
+        } catch(error) {
+          lastError=error;
+          if(attempt<4) {
+            try {await refreshAuthState();}catch{}
+            await new Promise(resolve=>window.setTimeout(resolve,350*2**attempt));
+          }
+        }
       }
       if(!data)throw lastError||new Error('Club account could not be loaded.');
       if(ticket!==revision)return;
       account=data;renderHome();message('home-status',data.clubs.length?'':'No clubs yet. Use Join a Club and enter the Member Code shared by an officer.');
       const saved=savedClubId();const club=saved&&data.clubs.find(item=>item.id===saved);
-      if(club){restoringClub=true;try{await openClub(club);}finally{restoringClub=false;}}
-    } catch {
+      // Do not tear down an open dialog or reset scroll position when a
+      // visibility refresh confirms the same club that is already selected.
+      if(club&&(!selected||selected.id!==club.id)){restoringClub=true;try{await openClub(club);}finally{restoringClub=false;}}
+    } catch (error) {
       if(ticket!==revision)return;
-      message('home-status','Your clubs could not be loaded. Check your connection. If this is the first multi-club launch, the site owner must apply the database migration.');$('home-retry').hidden=false;
+      console.warn('[Club Link] Account refresh failed.',{code:error?.code??null,message:error?.message??'Unknown account refresh error'});
+      // Keep an already open club visible while a suspended tab reconnects.
+      // The next visibility/focus event will retry the account request.
+      if(!selected){
+        const cachedClub=savedClubDetails();
+        if(cachedClub?.id&&user){
+          // A discarded tab can lose its in-memory view before the persisted
+          // session is ready. Restore the last safe, member-level view while
+          // the next resume event retries the authenticated account read.
+          restoringClub=true;
+          try {await openClub({id:String(cachedClub.id),name:String(cachedClub.name||'Club'),description:String(cachedClub.description||'')});}
+          finally {restoringClub=false;}
+        } else {
+          message('home-status','Your clubs could not be loaded. Check your connection. If this is the first multi-club launch, the site owner must apply the database migration.');$('home-retry').hidden=false;
+        }
+      }
     }
+  }
+  async function reloadAccount() {
+    if(accountReloadInProgress)return;
+    accountReloadInProgress=true;
+    try {await reloadAccountInternal();}finally{accountReloadInProgress=false;}
   }
   async function home(force=false) {
     if(!force&&!beforeLeave())return;
-    resetPrivateDialogs();forgetSavedClub();clearClub(user);setView(null);await reloadAccount();
+    resetPrivateDialogs();forgetSavedClub();account=null;clearClub(user);setView(null);renderHome();await reloadAccount();
   }
   async function openClub(club,guestToken=null) {
     if(!beforeLeave())return;
     resetPrivateDialogs();
     const officer=!guestToken&&Boolean(account?.isSuper||account?.memberships.some(item=>item.club_id===club.id&&item.role==='officer'));
     const context={...club,officer,guestToken,user,isSuper:Boolean(account?.isSuper)};
-    if(!guestToken){try{window.sessionStorage.setItem(selectedClubKey,club.id);}catch{}}
+    if(!guestToken){try{window.sessionStorage.setItem(selectedClubKey,club.id);window.sessionStorage.setItem(selectedClubDetailsKey,JSON.stringify({id:club.id,name:club.name,description:club.description||''}));}catch{}}
     clearClub(user);setView(context);await selectClub(context);
     if(restoringClub && /^#(?:dashboard|events|announcements|about)$/.test(window.location.hash)) {
       const section=document.querySelector(window.location.hash);
@@ -218,9 +252,27 @@ export function createPlatform({selectClub,clearClub,toast,beforeLeave}) {
     if(loginInProgress) return;
     return acceptUser(next);
   }
+  function resumeAfterVisibilityChange() {
+    if(document.visibilityState!=='visible'||accountReloadInProgress||resumeInProgress)return;
+    // Supabase refreshes persisted sessions lazily after a background tab is
+    // resumed. Re-run the account/RLS read so the selected club is restored
+    // instead of leaving the member on the My Clubs error state.
+    resumeInProgress=true;
+    void (async()=>{
+      try {
+        if(!user) {
+          const authState=await getAuthState();
+          if(authState.user){user=authState.user;clearClub(user);}
+        }
+        if(user) await reloadAccount();
+      } finally {resumeInProgress=false;}
+    })();
+  }
+  document.addEventListener('visibilitychange',resumeAfterVisibilityChange);
+  window.addEventListener('pageshow',resumeAfterVisibilityChange);
   return {login,logout,home,
     updateName(name){if(selected){selected.name=name;$('selected-club-name').textContent=name;}},
     updateAccess(officer,isSuper){if(selected){selected.officer=officer;$('manage-codes').hidden=!officer;$('delete-club').hidden=!isSuper;$('selected-club-role').textContent=selected.guestToken?'Guest view':isSuper?'Super Admin':officer?'Officer':'Member';}},
-    async start(){setView(null);clearClub(null);if(!isSupabaseConfigured)return;try{user=(await getAuthState()).user;clearClub(user);await reloadAccount();}catch{message('home-status','Your session could not be loaded. Try signing in again.');}watchAuthState(handleAuthState);},
+    async start(){setView(null);clearClub(null);if(!isSupabaseConfigured)return;try{let authState=null,lastError=null;for(let attempt=0;attempt<4;attempt+=1){try{authState=await getAuthState();break;}catch(error){lastError=error;if(attempt<3){try{await refreshAuthState();}catch{}await new Promise(resolve=>window.setTimeout(resolve,300*2**attempt));}}}if(!authState)throw lastError||new Error('Your session could not be loaded.');user=authState.user;clearClub(user);await reloadAccount();}catch{message('home-status','Your session could not be loaded. Try signing in again.');}watchAuthState(handleAuthState);},
   };
 }

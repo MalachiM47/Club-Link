@@ -1,7 +1,19 @@
 import { getSupabaseClient, isSupabaseConfigured } from './database.js';
 export async function getAuthState() {
   if (!isSupabaseConfigured) return {user:null};
-  const {data,error}=await getSupabaseClient().auth.getSession();
+  const client=getSupabaseClient();
+  let {data,error}=await client.auth.getSession();
+  if(error) throw error;
+  if(data.session?.expires_at && data.session.expires_at*1000 < Date.now()+60000) {
+    const refreshed=await client.auth.refreshSession();
+    if(refreshed.error) throw refreshed.error;
+    data=refreshed.data;
+  }
+  return {user:data.session?.user??null};
+}
+export async function refreshAuthState() {
+  if (!isSupabaseConfigured) return {user:null};
+  const {data,error}=await getSupabaseClient().auth.refreshSession();
   if(error) throw error;
   return {user:data.session?.user??null};
 }
