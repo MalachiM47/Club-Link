@@ -12,6 +12,13 @@ const requiredFiles = [
   'js/config.js',
   'js/database.js',
   'js/utils.js',
+  'js/platform.js',
+  'js/agenda-editor.js',
+  'api/access.js',
+  'migrations/001_multi_club.sql',
+  'scripts/build.mjs',
+  'docs/MIGRATION.md',
+  'docs/IMPLEMENTATION.md',
   'assets/favicon.svg',
   'supabase-setup.sql',
   'vercel.json',
@@ -59,6 +66,13 @@ for (const match of index.matchAll(/href="#([^"]+)"/g)) {
 
 const app = readFileSync(join(root, 'js/app.js'), 'utf8');
 if (/\.innerHTML\s*=/.test(app)) failures.push('app.js assigns innerHTML; render database text with textContent instead');
+for (const file of ['app','platform','agenda-editor','database','auth','branding','legal-branding','utils']) {
+  const source = readFileSync(join(root, `js/${file}.js`), 'utf8');
+  if (/\.innerHTML\s*=/.test(source)) failures.push(`${file}.js injects HTML`);
+  for (const match of source.matchAll(/from\s+['"](\.[^'"]+)['"]/g)) {
+    if (!existsSync(resolve(root, 'js', match[1]))) failures.push(`${file}.js has a missing import: ${match[1]}`);
+  }
+}
 
 const sql = readFileSync(join(root, 'supabase-setup.sql'), 'utf8');
 for (const table of ['events', 'event_officer_details', 'announcements', 'club_settings', 'admins']) {

@@ -1,6 +1,7 @@
 import { createReadStream, existsSync, statSync } from 'node:fs';
 import { createServer } from 'node:http';
-import { extname, join, normalize } from 'node:path';
+import { extname, join, normalize, sep } from 'node:path';
+import accessHandler from '../api/access.js';
 
 const port = Number(process.env.PORT || 4173);
 const root = process.cwd();
@@ -13,13 +14,23 @@ const mimeTypes = {
 };
 
 createServer((request, response) => {
-  const pathname = decodeURIComponent(new URL(request.url, `http://${request.headers.host}`).pathname);
+  if (request.url.split('?')[0] === '/api/access') return accessHandler(request, response);
+  let pathname;
+  try {
+    pathname = decodeURIComponent(new URL(request.url, 'http://localhost').pathname);
+  } catch {
+    response.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' });
+    response.end('Invalid URL');
+    return;
+  }
   const requested = pathname === '/' ? 'index.html' : pathname.replace(/^\/+/, '');
   const cleanCandidate = extname(requested) ? requested : `${requested}.html`;
   const relativePath = existsSync(join(root, cleanCandidate)) ? cleanCandidate : requested;
   const filePath = normalize(join(root, relativePath));
 
-  if (!filePath.startsWith(root) || !existsSync(filePath) || !statSync(filePath).isFile()) {
+  const hasUnsafeSegment = relativePath.split(/[\\/]/).some(segment => segment.startsWith('.'));
+  const allowed = !hasUnsafeSegment && /^(index\.html|privacy(?:\.html)?|terms(?:\.html)?|(?:js|styles|assets)\/[\w./-]+)$/.test(relativePath);
+  if (!allowed || !filePath.startsWith(root + sep) || !existsSync(filePath) || !statSync(filePath).isFile()) {
     response.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
     response.end('Not found');
     return;

@@ -1985,3 +1985,41 @@ h3 {
 :root[data-color-scheme="forest"] { --accent-light:#a5ddb6; --accent-hover:#205c39; --nav-active:#214e3c; }
 :root[data-color-scheme="plum"] { --accent-light:#dbb4f3; --accent-hover:#633683; --nav-active:#53346b; }
 :root[data-color-scheme="sunset"] { --accent-light:#ffc6a4; --accent-hover:#8d3820; --nav-active:#6c3c2a; }
+/* Multi-club screens extend the dashboard's existing restrained design system. */
+.platform-home { padding: 36px 0 60px; }
+.platform-home h1 { font-size: clamp(1.8rem, 4vw, 2.6rem); line-height: 1.2; margin: 12px 0; }
+.platform-home .intro-copy { max-width: 650px; }
+.platform-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+.platform-home > .platform-actions { margin: 26px 0; }
+.club-home-button { margin: 0 22px 18px; }
+.club-card-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,280px),1fr)); gap: 18px; margin-top: 26px; }
+.club-card { text-align: left; background: var(--surface,white); border: 1px solid var(--border,#dce2e8); border-radius: 10px; padding: 24px; color: inherit; cursor: pointer; min-width: 0; transition: border-color .15s; }
+.club-card:hover { border-color: var(--primary,#245783); }
+.club-card h2 { font-size: 1.2rem; margin: 0 0 12px; overflow-wrap: anywhere; }
+.club-card p { line-height: 1.6; margin: 12px 0 0; overflow-wrap: anywhere; color: var(--text-muted,#526273); }
+.club-role { display: inline-block; font-size: .78rem; padding: 3px 8px; border: 1px solid var(--border,#dce2e8); border-radius: 4px; }
+.selected-club-bar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 16px; border-bottom: 1px solid var(--border,#dce2e8); padding: 8px 0 24px; margin-bottom: 26px; }
+.selected-club-bar h2 { font-size: 1.35rem; overflow-wrap: anywhere; margin: 4px 0 0; }
+.selected-club-bar > div:first-child { min-width: 0; flex: 1 1 220px; }
+#guest-recommendation { flex-basis: 100%; font-size: .9rem; line-height: 1.6; margin: 0; }
+.code-row { padding: 24px 0; border-bottom: 1px solid var(--border,#dce2e8); }
+.code-row code { display: block; font-size: clamp(1.3rem,5vw,1.9rem); letter-spacing: .05em; margin: 12px 0 20px; user-select: all; }
+.agenda-dialog { width: min(900px,calc(100% - 32px)); max-width: 900px; }
+.agenda-dialog .dialog-card { width: 100%; }
+.agenda-item { padding: 20px; margin-bottom: 20px; border: 1px solid var(--border,#dce2e8); border-radius: 8px; }
+.agenda-item-top { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.agenda-item .field:last-child { margin-bottom: 0; }
+.agenda-item .button-quiet, #guest-recommendation .button-quiet { color: var(--ink-600); }
+.agenda-item .button-quiet:disabled { opacity: .45; }
+.agenda-save-bar .button { min-width: 132px; white-space: nowrap; flex-shrink: 0; }
+.agenda-save-bar { position: sticky; bottom: -28px; background: var(--surface,white); border-top: 1px solid var(--border,#dce2e8); padding: 16px 0; margin-top: 20px; display: flex; gap: 12px; align-items: center; justify-content: space-between; }
+.agenda-save-bar span { font-size: .85rem; }
+@media(max-width:600px) {
+  .platform-home { padding-top: 14px; }
+  .platform-home > .platform-actions { align-items: stretch; flex-direction: column; }
+  .club-card { padding: 20px; }
+  .agenda-dialog { width: calc(100% - 16px); }
+  .agenda-item { padding: 14px; }
+  .agenda-item-top .button { min-height: 44px; padding: 8px; }
+  .agenda-save-bar { bottom: -20px; }
+}

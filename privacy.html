@@ -24,19 +24,19 @@
   <main class="legal-main" id="main-content">
     <p class="eyebrow">Club Link</p>
     <h1>Privacy Policy</h1>
-    <p class="legal-effective">Effective September 8, 2026</p>
+    <p class="legal-effective">Updated September 9, 2026</p>
 
-    <p>Club Link is a small student club website. This policy explains what information the site uses and why. It is written for club members, officers, and visitors.</p>
+    <p>Club Link helps student clubs share schedules, announcements, and meeting information. This policy explains what the site uses and why.</p>
 
     <section>
-      <h2>Information shown publicly</h2>
-      <p>Schedule details, events, announcements, club descriptions, membership instructions, and any club contact address posted by an officer are public. Officers should not publish private student information in these areas.</p>
+      <h2>Club information</h2>
+      <p>Schedules, announcements, club descriptions, membership instructions, and posted contact addresses are available to registered members of that club and visitors who enter its Member Code. A Member Code can be shared, so officers should not put sensitive student information in these areas.</p>
     </section>
 
     <section>
-      <h2>Officer account information</h2>
-      <p>Officer accounts use Supabase Authentication. Supabase stores the email address, password credential, and session information needed to sign in. Club Link does not display officer email addresses to the public and does not store passwords in its own database tables.</p>
-      <p>Private meeting notes are stored separately from the public schedule. Database access policies restrict those notes to authorized officers. Officers should still avoid putting sensitive student information in meeting notes unless the club has a clear reason and permission to keep it there.</p>
+      <h2>Accounts and meeting records</h2>
+      <p>Registration asks for a first name, last initial, email, and password. A profile stores the first name and last initial. Supabase Auth handles email, password credentials, and sessions. Club Link does not store plaintext passwords in its own tables or display account emails to other members.</p>
+      <p>Membership records link an account to its clubs and member or officer roles. Meeting talking points and secretary notes are stored separately from the member schedule. Only that club's officers and the platform Super Admin can access them. Avoid recording sensitive information without a clear reason and appropriate permission.</p>
     </section>
 
     <section>
@@ -49,7 +49,7 @@
       <h2>How information is used</h2>
       <ul>
         <li>To display current club information to members.</li>
-        <li>To authenticate officers and check whether an account is authorized.</li>
+        <li>To sign in users and check their permissions for each club.</li>
         <li>To prevent unauthorized changes and troubleshoot site problems.</li>
       </ul>
       <p>Club Link does not include advertising, sell personal information, or create public member profiles.</p>
@@ -57,7 +57,14 @@
 
     <section>
       <h2>Data choices and questions</h2>
-      <p>Members can use the public website without creating an account. An officer who needs an account corrected or removed should contact the club administrator using the contact information listed on the dashboard. Questions about a public post should also be directed to the club.</p>
+      <p>You may enter a Member Code without creating an account. Guest access is held in this tab's memory for up to 8 hours and is not saved as an account membership. Reloading or closing the page requires entering the code again. Rotating a Member Code also ends guest access issued under the old code.</p>
+      <p>Signed-in sessions are stored by Supabase in your browser until sign-out or expiry. Sign out on shared devices. For account corrections or deletion requests, contact your club leadership or the site owner through your school's usual channels. A club's contact may also be listed in Club information. There is no automated account-deletion form.</p>
+    </section>
+
+    <section>
+      <h2>Access checks and retention</h2>
+      <p>The code-entry service uses a keyed hash of your network address to limit repeated guesses. Raw network addresses are not stored in the application's rate-limit table, though hosting providers may keep request logs. Rate-limit entries older than one day and expired guest sessions are removed when the next code request runs.</p>
+      <p>Club content and memberships remain until removed by an authorized operator. Deleting a club removes its active content and memberships, not user accounts. A restricted snapshot of the original Black Student Union data is retained for migration verification; it is not accessible through the website. The site owner manages its retention and any provider backups.</p>
     </section>
 
     <section>

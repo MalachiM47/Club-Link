@@ -7,9 +7,10 @@ import {
   saveAnnouncement,
   saveClubInformation,
   saveEvent,
-  saveMeetingDetails,
+  loadAccount,
 } from './database.js';
-import { getAuthState, signInOfficer, signOutOfficer, watchAuthState } from './auth.js';
+import { createPlatform } from './platform.js';
+import { createAgendaEditor } from './agenda-editor.js';
 import {
   filterUpcomingEvents,
   getEventArchiveDate,
@@ -26,6 +27,9 @@ import {
 import { applyBranding } from './branding.js';
 
 const state = {
+  clubId: null,
+  guestToken: null,
+  isSuper: false,
   events: [],
   announcements: [],
   settings: null,
@@ -77,10 +81,6 @@ const elements = {
   eventType: document.querySelector('#event-type'),
   eventNameField: document.querySelector('#event-name-field'),
   eventName: document.querySelector('#event-name'),
-  meetingOfficerNotesField: document.querySelector('#meeting-officer-notes-field'),
-  meetingOfficerNotes: document.querySelector('#meeting-officer-notes'),
-  secretaryNotesField: document.querySelector('#secretary-notes-field'),
-  secretaryNotes: document.querySelector('#secretary-notes'),
 };
 
 function createIcon(symbol) {
@@ -191,31 +191,16 @@ function getNextEvent() {
 
 function createOfficerNotes(event, dark = false) {
   if (!state.officer || event?.event_type !== 'meeting') return null;
-
-  const details = document.createElement('details');
-  details.className = `officer-notes${dark ? ' officer-notes-dark' : ''}`;
-  const summary = document.createElement('summary');
-  summary.textContent = 'Officer-only meeting information';
-  const body = document.createElement('div');
-  body.className = 'officer-notes-body';
-  const agendaHeading = document.createElement('h4');
-  agendaHeading.textContent = 'Agenda';
-  const secretaryHeading = document.createElement('h4');
-  secretaryHeading.textContent = 'Secretary notes';
-  const secretary = document.createElement('p');
-  secretary.textContent = state.meetingDetailsError ? 'Secretary notes could not be loaded.' : state.meetingDetails.get(event.id)?.secretary_notes || 'No secretary notes have been added.';
-  const note = document.createElement('p');
-  note.textContent = state.meetingDetailsError
-    ? 'Private notes could not be loaded.'
-    : state.meetingDetails.get(event.id)?.notes || 'No agenda has been added.';
+  const wrapper = document.createElement('div');
+  wrapper.className = `officer-notes${dark ? ' officer-notes-dark' : ''}`;
   const edit = document.createElement('button');
   edit.type = 'button';
   edit.className = dark ? 'button button-on-dark' : 'button button-secondary';
-  edit.textContent = 'Edit meeting details';
-  edit.addEventListener('click', () => openEventDialog(event));
-  body.append(agendaHeading, note, secretaryHeading, secretary, edit);
-  details.append(summary, body);
-  return details;
+  edit.textContent = state.meetingDetailsError ? 'Private agenda unavailable' : 'Open officer-only agenda';
+  edit.disabled = Boolean(state.meetingDetailsError);
+  edit.addEventListener('click', () => agenda.open(event, state.meetingDetails.get(event.id) || []));
+  wrapper.append(edit);
+  return wrapper;
 }
 
 function scheduleNextEventTransition() {
@@ -548,6 +533,7 @@ function renderClubInformation() {
 }
 
 function renderAuthState() {
+  if(state.clubId)platform.updateAccess(Boolean(state.officer),state.isSuper&&!state.dataError);
   const isSignedIn = Boolean(state.user);
   elements.signedOutPanel.hidden = isSignedIn;
   elements.signedInPanel.hidden = !isSignedIn;
@@ -558,12 +544,10 @@ function renderAuthState() {
   if (isSignedIn) {
     elements.accountEmail.textContent = state.user.email || 'Signed-in account';
     elements.accountAvatar.textContent = initialsFromEmail(state.user.email);
-    elements.accountRole.textContent = state.officer
-      ? state.officer.role === 'admin' ? 'Club admin' : 'Club officer'
-      : 'Signed in';
+    elements.accountRole.textContent = state.isSuper ? 'Super Admin' : state.officer ? 'Club officer' : 'Signed in';
     elements.accessNote.textContent = state.officer
       ? 'Publishing controls are available.'
-      : 'This account is not on the officer access list.';
+      : state.clubId ? 'Member view. Publishing is available to this club’s officers.' : 'Choose a club from My Clubs.';
   }
 
   renderEvents();
@@ -582,45 +566,60 @@ function renderAll() {
   scheduleNextEventTransition();
 }
 
-async function refreshOfficerMeetingDetails() {
-  state.meetingDetails = new Map();
-  state.meetingDetailsError = null;
-  if (!state.officer || !isSupabaseConfigured) return;
-
-  try {
-    const details = await loadOfficerMeetingDetails();
-    state.meetingDetails = new Map(details.map((item) => [item.event_id, item]));
-  } catch (error) {
-    console.error('Private meeting details could not be loaded:', error);
-    state.meetingDetailsError = error;
+let viewRevision = 0;
+const agenda = createAgendaEditor(() => refreshPublicData());
+function clearClub(user) {
+  viewRevision += 1;
+  agenda.discard(true);
+  for (const id of ['event-dialog','announcement-dialog','club-dialog','confirm-dialog']) {
+    const dialog = document.getElementById(id); dialog.close(); dialog.querySelector('form')?.reset();
   }
+  Object.assign(state, {clubId:null,guestToken:null,isSuper:false,user,officer:null,events:[],announcements:[],settings:null,dataError:null,meetingDetails:new Map(),meetingDetailsError:null,pendingDelete:null});
+  elements.eventSearch.value='';elements.eventRange.value='all';
+  renderAll();
 }
-
+async function selectClub(context) {
+  state.clubId=context.id;state.user=context.user;state.guestToken=context.guestToken;
+  state.isSuper=context.isSuper;state.officer=context.officer?{role:'officer'}:null;
+  renderAll();await refreshPublicData();
+}
+async function refreshOfficerMeetingDetails(ticket=viewRevision) {
+  state.meetingDetails = new Map();state.meetingDetailsError = null;
+  if (!state.officer || !state.clubId) return;
+  try {
+    const details = await loadOfficerMeetingDetails(state.clubId);
+    if(ticket!==viewRevision)return;
+    for(const item of details) {
+      if(!state.meetingDetails.has(item.meeting_id))state.meetingDetails.set(item.meeting_id,[]);
+      state.meetingDetails.get(item.meeting_id).push(item);
+    }
+  } catch(error) {if(ticket===viewRevision)state.meetingDetailsError=error;}
+}
 async function refreshPublicData() {
-  if (!isSupabaseConfigured) {
-    state.dataError = null;
-    state.events = [];
-    state.announcements = [];
-    state.settings = null;
-    state.meetingDetails = new Map();
-    state.meetingDetailsError = null;
-    renderAll();
-    return;
-  }
-
+  if (!isSupabaseConfigured || !state.clubId) return;
+  const ticket=viewRevision;const clubId=state.clubId;
   setLoadingState();
   try {
-    const data = await loadPublicData();
-    state.events = data.events;
-    state.announcements = data.announcements;
-    state.settings = data.settings;
-    state.dataError = null;
-    await refreshOfficerMeetingDetails();
-  } catch (error) {
-    console.error('Club Link data load failed:', error);
-    state.dataError = error;
+    // Recheck membership when refreshing, including after an officer is revoked externally.
+    if(!state.guestToken&&state.user) {
+      const account=await loadAccount(state.user.id);
+      if(ticket!==viewRevision)return;
+      state.isSuper=account.isSuper;
+      state.officer=account.isSuper||account.memberships.some(item=>item.club_id===clubId&&item.role==='officer')?{role:'officer'}:null;
+      if(!state.officer)agenda.discard(true);
+    }
+    const data=await loadPublicData(clubId,state.guestToken);
+    if(ticket!==viewRevision)return;
+    state.events=data.events;state.announcements=data.announcements;state.settings=data.settings;state.dataError=null;
+    platform.updateName(data.settings?.club_name||data.club?.name||'Club');
+    await refreshOfficerMeetingDetails(ticket);
+  } catch(error) {
+    if(ticket!==viewRevision)return;
+    state.events=[];state.announcements=[];state.settings=null;state.meetingDetails=new Map();state.officer=null;state.dataError=error;
+    agenda.discard(true);
+    showToast(state.guestToken?'Guest access expired or is unavailable. Return to Club Link and enter the current Member Code.':'Club information could not be loaded. Check your connection and membership.','error');
   }
-  renderAll();
+  if(ticket===viewRevision)renderAll();
 }
 
 function openDialog(dialog) {
@@ -667,10 +666,7 @@ function syncEventTypeFields() {
   elements.eventNameField.hidden = isMeeting;
   elements.eventName.disabled = isMeeting;
   elements.eventName.required = !isMeeting;
-  elements.meetingOfficerNotesField.hidden = !isMeeting;
-  elements.meetingOfficerNotes.disabled = !isMeeting;
-  elements.secretaryNotesField.hidden = !isMeeting;
-  elements.secretaryNotes.disabled = !isMeeting;
+  document.querySelector('#meeting-agenda-hint').hidden = !isMeeting;
 }
 
 function openEventDialog(event = null) {
@@ -686,8 +682,6 @@ function openEventDialog(event = null) {
   document.querySelector('#event-date').value = toDatetimeLocalValue(event?.event_date);
   document.querySelector('#event-location').value = event?.location || '';
   document.querySelector('#event-description').value = event?.description || '';
-  elements.meetingOfficerNotes.value = event ? state.meetingDetails.get(event.id)?.notes || '' : '';
-  elements.secretaryNotes.value = event ? state.meetingDetails.get(event.id)?.secretary_notes || '' : '';
   syncEventTypeFields();
   openDialog(document.querySelector('#event-dialog'));
 }
@@ -731,8 +725,8 @@ async function confirmDelete() {
   const { type, item } = state.pendingDelete;
   setSubmitBusy(button, true, 'Deleting…');
   try {
-    if (type === 'event') await removeEvent(item.id);
-    else await removeAnnouncement(item.id);
+    if (type === 'event') await removeEvent(item.id, state.clubId);
+    else await removeAnnouncement(item.id, state.clubId);
     state.pendingDelete = null;
     closeDialog(document.querySelector('#confirm-dialog'));
     await refreshPublicData();
@@ -775,7 +769,8 @@ async function handleEventSubmit(event) {
 
   setSubmitBusy(submit, true, 'Saving…');
   try {
-    const savedEvent = await saveEvent({
+    await saveEvent({
+      club_id: state.clubId,
       id: eventId,
       event_type: eventType,
       name: data.get('name'),
@@ -783,11 +778,6 @@ async function handleEventSubmit(event) {
       location: data.get('location'),
       description: data.get('description'),
     });
-    const savedEventId = savedEvent.id;
-    if (eventType === 'meeting') {
-      await saveMeetingDetails(savedEventId, data.get('officer_notes') || '', data.get('secretary_notes') || '');
-
-    }
     const wasEditing = Boolean(eventId);
     form.reset();
     closeDialog(document.querySelector('#event-dialog'));
@@ -811,6 +801,7 @@ async function handleAnnouncementSubmit(event) {
   setSubmitBusy(submit, true, 'Publishing…');
   try {
     await saveAnnouncement({
+      club_id: state.clubId,
       id: data.get('id'),
       title: data.get('title'),
       body: data.get('body'),
@@ -837,6 +828,7 @@ async function handleClubSubmit(event) {
   setSubmitBusy(submit, true, 'Saving…');
   try {
     await saveClubInformation({
+      club_id: state.clubId,
       club_name: data.get('club_name'),
       color_scheme: data.get('color_scheme'),
       club_description: data.get('club_description'),
@@ -851,58 +843,6 @@ async function handleClubSubmit(event) {
     setFormError('#club-error', friendlyError(error, 'The club information could not be saved. Try again.'));
   } finally {
     setSubmitBusy(submit, false);
-  }
-}
-
-async function handleAuthSubmit(event) {
-  event.preventDefault();
-  resetFormError('#auth-error');
-  if (!isSupabaseConfigured) {
-    setFormError('#auth-error', 'Connect Supabase in js/config.js before signing in.');
-    return;
-  }
-  const form = event.currentTarget;
-  const submit = document.querySelector('#auth-submit');
-  const data = new FormData(form);
-  setSubmitBusy(submit, true, 'Signing in…');
-  try {
-    const authState = await signInOfficer(data.get('email'), data.get('password'));
-    state.user = authState.user;
-    state.officer = authState.officer;
-    await refreshOfficerMeetingDetails();
-    form.reset();
-    closeDialog(document.querySelector('#auth-dialog'));
-    renderAll();
-    if (state.officer) showToast('Officer controls are now available.');
-    else showToast('Signed in, but this account is not authorized as an officer.', 'error');
-  } catch (error) {
-    console.error('[Club Link] Officer sign-in flow failed.', {
-      code: error?.code ?? null,
-      message: error?.message ?? 'Unknown sign-in error',
-    });
-    setFormError('#auth-error', 'The email or password was not accepted. Check both and try again.');
-  } finally {
-    setSubmitBusy(submit, false);
-  }
-}
-
-async function handleSignOut() {
-  const button = document.querySelector('#sign-out-button');
-  setSubmitBusy(button, true, 'Signing out…');
-  try {
-    await signOutOfficer();
-    state.user = null;
-    state.officer = null;
-    state.meetingDetails = new Map();
-    state.meetingDetailsError = null;
-    renderAll();
-    closeMobileNav();
-    showToast('Signed out.');
-  } catch (error) {
-    console.error('Sign out failed:', error);
-    showToast('Sign out did not finish. Try again.', 'error');
-  } finally {
-    setSubmitBusy(button, false);
   }
 }
 
@@ -938,7 +878,7 @@ function initializeDialogs() {
 let navigationFrame = null;
 
 function updateActiveNavigation() {
-  const sections = [...document.querySelectorAll('.page-section')];
+  const sections = [...document.querySelectorAll('.page-section')].filter(section => !section.hidden);
   if (!sections.length) return;
 
   const atPageBottom = window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 4;
@@ -990,7 +930,7 @@ function initializeActions() {
     submit.disabled = !isSupabaseConfigured;
     openDialog(document.querySelector('#auth-dialog'));
   });
-  document.querySelector('#sign-out-button').addEventListener('click', handleSignOut);
+  document.querySelector('#sign-out-button').addEventListener('click', platform.logout);
   document.querySelector('#add-event-button').addEventListener('click', () => openEventDialog());
   document.querySelector('#add-announcement-button').addEventListener('click', () => openAnnouncementDialog());
   elements.editNextEventButton.addEventListener('click', () => {
@@ -1000,7 +940,7 @@ function initializeActions() {
   document.querySelector('#edit-club-button').addEventListener('click', openClubDialog);
   document.querySelector('#confirm-delete-button').addEventListener('click', confirmDelete);
 
-  document.querySelector('#auth-form').addEventListener('submit', handleAuthSubmit);
+  document.querySelector('#auth-form').addEventListener('submit', platform.login);
   document.querySelector('#event-form').addEventListener('submit', handleEventSubmit);
   document.querySelector('#announcement-form').addEventListener('submit', handleAnnouncementSubmit);
   document.querySelector('#club-form').addEventListener('submit', handleClubSubmit);
@@ -1068,34 +1008,13 @@ function initializeWebMcp() {
   });
 }
 
+const platform = createPlatform({selectClub,clearClub,toast:showToast,beforeLeave:()=>agenda.discard()});
 async function initialize() {
   elements.todayDate.textContent = new Intl.DateTimeFormat(undefined, {
     weekday: 'short', month: 'long', day: 'numeric',
   }).format(new Date());
   elements.configurationBanner.hidden = isSupabaseConfigured;
-  initializeDialogs();
-  initializeNavigation();
-  initializeActions();
-  initializeWebMcp();
-  setLoadingState();
-
-  if (isSupabaseConfigured) {
-    try {
-      const authState = await getAuthState();
-      state.user = authState.user;
-      state.officer = authState.officer;
-    } catch (error) {
-      console.error('Authentication state could not be loaded:', error);
-    }
-
-    watchAuthState(async (authState) => {
-      state.user = authState.user;
-      state.officer = authState.officer;
-      await refreshOfficerMeetingDetails();
-      renderAll();
-    });
-  }
-  await refreshPublicData();
+  initializeDialogs();initializeNavigation();initializeActions();initializeWebMcp();
+  await platform.start();
 }
-
 initialize();

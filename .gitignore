@@ -5,6 +5,7 @@
 
 # Local development
 node_modules/
+.pnpm-store/
 .vercel/
 coverage/
 *.log

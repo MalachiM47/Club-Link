@@ -45,7 +45,8 @@
         </button>
       </div>
 
-      <nav class="side-nav" aria-label="Club Link sections">
+      <button class="button button-secondary club-home-button" id="my-clubs-button" type="button" data-brand-ignore>My Clubs</button>
+      <nav class="side-nav" id="club-navigation" aria-label="Club Link sections" hidden>
         <a class="nav-link is-active" href="#dashboard" data-section="dashboard">
           <svg class="icon"><use href="#icon-grid"></use></svg><span>Dashboard</span>
         </a>
@@ -63,11 +64,11 @@
       <div class="sidebar-spacer"></div>
 
       <section class="officer-panel" aria-labelledby="officer-panel-title">
-        <p class="eyebrow" id="officer-panel-title">Officer access</p>
+        <p class="eyebrow" id="officer-panel-title">Your account</p>
         <div id="signed-out-panel">
-          <p class="officer-panel-copy">Authorized officers can publish and update club information.</p>
+          <p class="officer-panel-copy" data-brand-ignore>Sign in to access your saved clubs.</p>
           <button class="button button-secondary button-full" id="open-auth-button" type="button">
-            <svg class="icon"><use href="#icon-login"></use></svg>Officer sign in
+            <svg class="icon"><use href="#icon-login"></use></svg>Log in
           </button>
         </div>
         <div id="signed-in-panel" class="signed-in-panel" hidden>
@@ -98,12 +99,35 @@
       </header>
 
       <div class="content-wrap">
+        <section id="platform-home" class="platform-home" aria-labelledby="home-title" data-brand-ignore>
+          <p class="eyebrow">Club Link</p>
+          <h1 id="home-title">Your clubs, in one place.</h1>
+          <p id="home-copy" class="intro-copy">Find your club's schedule, announcements, and meeting information.</p>
+          <div id="welcome-actions" class="platform-actions">
+            <button class="button button-primary" id="home-login" type="button">Log in</button>
+            <button class="button button-secondary" id="home-signup" type="button">Create account</button>
+            <button class="button button-secondary" id="home-guest" type="button">View a club with a Member Code</button>
+          </div>
+          <div id="account-actions" class="platform-actions" hidden>
+            <button class="button button-primary" id="join-member" type="button">Join a Club</button>
+            <button class="button button-secondary" id="join-officer" type="button">Join as Officer</button>
+            <button class="button button-secondary" id="create-club" type="button" hidden>Create Club</button>
+          </div>
+          <p id="home-status" role="status"></p>
+          <button class="button button-secondary" id="home-retry" type="button" hidden>Try again</button>
+          <div id="my-club-cards" class="club-card-grid"></div>
+        </section>
+        <div id="selected-club-bar" class="selected-club-bar" data-brand-ignore hidden>
+          <div><p class="eyebrow" id="selected-club-role"></p><h2 id="selected-club-name"></h2></div>
+          <div class="platform-actions"><button class="button button-secondary" id="manage-codes" type="button" hidden>Club access</button><button class="button button-danger" id="delete-club" type="button" hidden>Delete club</button></div>
+          <p id="guest-recommendation" hidden>Guest view. Create an account to save this club and access it automatically next time. <button class="button button-quiet" id="guest-signup" type="button">Create account</button></p>
+        </div>
         <div class="configuration-banner" id="configuration-banner" role="status" hidden>
           <span class="configuration-dot" aria-hidden="true"></span>
           <div><strong>Connect Supabase to publish club information.</strong><p>The interface is ready. Add the two public project values in <code>js/config.js</code> to load shared data.</p></div>
         </div>
 
-        <section class="page-section dashboard-section" id="dashboard" aria-labelledby="dashboard-heading">
+        <section class="page-section dashboard-section" id="dashboard" aria-labelledby="dashboard-heading" hidden>
           <div class="section-intro dashboard-intro">
             <div>
               <p class="eyebrow">Member dashboard</p>
@@ -157,7 +181,7 @@
           </div>
         </section>
 
-        <section class="page-section" id="events" aria-labelledby="events-heading">
+        <section class="page-section" id="events" aria-labelledby="events-heading" hidden>
           <div class="section-header">
             <div><p class="eyebrow">Club calendar</p><h2 id="events-heading">Upcoming schedule</h2><p>Meetings and events are shown in chronological order.</p></div>
             <button class="button button-primary" id="add-event-button" type="button" data-admin-only hidden>
@@ -183,7 +207,7 @@
           <div class="event-grid" id="events-list" aria-live="polite" aria-busy="true"></div>
         </section>
 
-        <section class="page-section" id="announcements" aria-labelledby="announcements-heading">
+        <section class="page-section" id="announcements" aria-labelledby="announcements-heading" hidden>
           <div class="section-header">
             <div><p class="eyebrow">From club officers</p><h2 id="announcements-heading">Announcements</h2><p>Recent notes, reminders, and changes from the club.</p></div>
             <button class="button button-primary" id="add-announcement-button" type="button" data-admin-only hidden>
@@ -193,7 +217,7 @@
           <div class="announcement-list" id="announcements-list" aria-live="polite" aria-busy="true"></div>
         </section>
 
-        <section class="page-section about-section" id="about" aria-labelledby="about-heading">
+        <section class="page-section about-section" id="about" aria-labelledby="about-heading" hidden>
           <div class="section-header">
             <div><p class="eyebrow">Club information</p><h2 id="about-heading">About the club</h2></div>
             <button class="button button-secondary" id="edit-club-button" type="button" data-admin-only hidden>
@@ -234,10 +258,10 @@
 
   <div class="toast-region" id="toast-region" aria-live="polite" aria-atomic="true"></div>
 
-  <dialog class="dialog" id="auth-dialog" aria-labelledby="auth-dialog-title">
+  <dialog class="dialog" id="auth-dialog" aria-labelledby="auth-dialog-title" data-brand-ignore>
     <div class="dialog-card dialog-card-small">
-      <div class="dialog-header"><div><p class="eyebrow">Restricted access</p><h2 id="auth-dialog-title">Officer sign in</h2></div><button class="button button-secondary dialog-cancel" type="button">Cancel</button></div>
-      <p class="dialog-intro">Use the email and password assigned to your officer account. There is no public account registration.</p>
+      <div class="dialog-header"><div><p class="eyebrow">Your account</p><h2 id="auth-dialog-title">Log in</h2></div><button class="button button-secondary dialog-cancel" type="button">Cancel</button></div>
+      <p class="dialog-intro">Use your Club Link email and password. Club permissions are checked after login.</p>
       <div class="inline-notice" id="auth-config-notice" hidden><strong>Supabase is not connected.</strong><span>Add the project URL and publishable key in <code>js/config.js</code> before signing in.</span></div>
       <form id="auth-form">
         <div class="field"><label for="auth-email">Email address</label><input id="auth-email" name="email" type="email" autocomplete="username" required></div>
@@ -266,16 +290,7 @@
           <div class="field"><label for="event-location">Location</label><input id="event-location" name="location" type="text" maxlength="160" required></div>
         </div>
         <div class="field"><label for="event-description">Description <span>Optional</span></label><textarea id="event-description" name="description" rows="4" maxlength="1000"></textarea></div>
-        <div class="field officer-notes-field" id="meeting-officer-notes-field">
-          <label for="meeting-officer-notes">Agenda <span>Officers only</span></label>
-          <textarea id="meeting-officer-notes" name="officer_notes" rows="5" maxlength="4000"></textarea>
-          <small>Existing private notes are kept here as the agenda.</small>
-        </div>
-          <div class="field officer-notes-field" id="secretary-notes-field">
-            <label for="secretary-notes">Secretary notes <span>Officers only</span></label>
-            <textarea id="secretary-notes" name="secretary_notes" rows="6" maxlength="4000"></textarea>
-            <small>Record minutes and decisions. Officers can view and edit these later under Previous events.</small>
-          </div>
+        <p id="meeting-agenda-hint" class="dialog-intro">Save the meeting, then open its officer-only agenda to add talking points and secretary notes.</p>
         <p class="form-error" id="event-error" role="alert" hidden></p>
         <div class="dialog-actions"><button class="button button-secondary dialog-cancel" type="button">Cancel</button><button class="button button-primary" id="event-submit" type="submit">Add to schedule</button></div>
       </form>
@@ -318,6 +333,40 @@
     </div>
   </dialog>
 
+  <dialog class="dialog" id="signup-dialog" aria-labelledby="signup-title" data-brand-ignore>
+    <div class="dialog-card"><div class="dialog-header"><h2 id="signup-title">Create account</h2><button class="button button-secondary dialog-cancel" type="button">Cancel</button></div>
+      <form id="signup-form">
+        <div class="field-row"><div class="field"><label for="signup-first">First name</label><input id="signup-first" name="first_name" maxlength="60" autocomplete="given-name" required></div><div class="field"><label for="signup-initial">Last initial</label><input id="signup-initial" name="last_initial" maxlength="1" required></div></div>
+        <div class="field"><label for="signup-email">Email</label><input id="signup-email" name="email" type="email" autocomplete="email" required></div>
+        <div class="field"><label for="signup-password">Password</label><input id="signup-password" name="password" type="password" autocomplete="new-password" minlength="8" required><small>Use at least 8 characters. Your password is handled by Supabase Auth.</small></div>
+        <p>Read the <a href="privacy.html" target="_blank" rel="noopener">Privacy Policy</a> and <a href="terms.html" target="_blank" rel="noopener">Terms of Use</a>.</p>
+        <p id="signup-error" class="form-error" role="alert" hidden></p><p id="signup-status" role="status"></p>
+        <div class="dialog-actions"><button class="button button-primary" type="submit">Create account</button></div>
+      </form>
+    </div>
+  </dialog>
+  <dialog class="dialog" id="join-dialog" aria-labelledby="join-title" data-brand-ignore>
+    <div class="dialog-card"><div class="dialog-header"><h2 id="join-title">Join a Club</h2><button class="button button-secondary dialog-cancel" type="button">Cancel</button></div>
+      <p id="join-copy" class="dialog-intro"></p><form id="join-form"><div class="field"><label for="join-code" id="join-code-label">Member Code</label><input id="join-code" name="code" maxlength="40" autocomplete="off" autocapitalize="characters" spellcheck="false" required placeholder="MEM-000-000"></div><p id="join-error" class="form-error" role="alert" hidden></p><div class="dialog-actions"><button class="button button-primary" type="submit">Continue</button></div></form>
+    </div>
+  </dialog>
+  <dialog class="dialog" id="new-club-dialog" aria-labelledby="new-club-title" data-brand-ignore>
+    <div class="dialog-card"><div class="dialog-header"><h2 id="new-club-title">Create club</h2><button class="button button-secondary dialog-cancel" type="button">Cancel</button></div>
+      <form id="new-club-form"><div class="field"><label for="new-club-name">Club name</label><input id="new-club-name" name="name" maxlength="80" required></div><div class="field"><label for="new-club-description">Description</label><textarea id="new-club-description" name="description" maxlength="1500" rows="4"></textarea></div><p id="new-club-error" class="form-error" role="alert" hidden></p><div class="dialog-actions"><button class="button button-primary" type="submit">Create club</button></div></form>
+    </div>
+  </dialog>
+  <dialog class="dialog" id="codes-dialog" aria-labelledby="codes-title" data-brand-ignore>
+    <div class="dialog-card"><div class="dialog-header"><h2 id="codes-title">Club access</h2><button class="button button-secondary dialog-cancel" type="button">Close</button></div><p>Share the Officer Code only with trusted club officers. Anyone with that code and a confirmed account can join as an officer.</p><div id="code-rows"></div><p id="codes-error" class="form-error" role="alert" hidden></p></div>
+  </dialog>
+  <dialog class="dialog" id="platform-confirm" aria-labelledby="platform-confirm-title" data-brand-ignore>
+    <div class="dialog-card"><div class="dialog-header"><h2 id="platform-confirm-title">Please confirm</h2><button class="button button-secondary dialog-cancel" type="button">Cancel</button></div><p id="platform-confirm-copy"></p><form id="platform-confirm-form"><div class="field" id="delete-name-field" hidden><label for="delete-name">Type the exact club name to confirm</label><input id="delete-name" autocomplete="off"></div><p id="platform-confirm-error" class="form-error" role="alert" hidden></p><div class="dialog-actions"><button class="button button-danger" type="submit">Confirm</button></div></form></div>
+  </dialog>
+  <dialog class="dialog agenda-dialog" id="agenda-dialog" aria-labelledby="agenda-title" data-brand-ignore>
+    <div class="dialog-card"><div class="dialog-header"><div><p class="eyebrow">Officers only</p><h2 id="agenda-title">Meeting agenda</h2></div><button class="button button-secondary" id="agenda-close" type="button">Close</button></div>
+      <p class="dialog-intro">Add talking points and record notes underneath each one. Save before closing.</p>
+      <form id="agenda-form"><div id="agenda-items"></div><button class="button button-secondary" id="agenda-add" type="button">Add talking point</button><p id="agenda-error" class="form-error" role="alert" hidden></p><div class="agenda-save-bar"><span id="agenda-status" role="status"></span><button class="button button-primary" id="agenda-save" type="submit">Save notes</button></div></form>
+    </div>
+  </dialog>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script type="module" src="js/app.js"></script>
 </body>

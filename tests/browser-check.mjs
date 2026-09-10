@@ -110,365 +110,110 @@ async function evaluate(cdp, expression) {
   return result.result.value;
 }
 
-async function waitForPageReady(cdp, expectedUrl = appUrl) {
-  let lastState;
-  for (let attempt = 0; attempt < 100; attempt += 1) {
-    lastState = await evaluate(cdp, `({
-      href: location.href,
-      readyState: document.readyState,
-      hasEvents: Boolean(document.querySelector('#events-list')),
-      busy: document.querySelector('#events-list')?.getAttribute('aria-busy') ?? null,
-      bodyStart: document.body?.innerText?.slice(0, 120) ?? ''
-    })`);
-    if (lastState.href === expectedUrl && lastState.hasEvents && lastState.busy === 'false') return;
-    await delay(100);
-  }
-  throw new Error(`Club Link did not finish rendering: ${JSON.stringify(lastState)}`);
-}
 
-async function testViewport(cdp, width, height) {
-  await cdp.send('Emulation.setDeviceMetricsOverride', {
-    width,
-    height,
-    deviceScaleFactor: 1,
-    mobile: width <= 500,
-  });
-  await cdp.send('Page.navigate', { url: appUrl });
-  await waitForPageReady(cdp);
-
-  const result = await evaluate(cdp, `(() => ({
-    title: document.title,
-    innerWidth: window.innerWidth,
-    scrollWidth: document.documentElement.scrollWidth,
-    mainVisible: Boolean(document.querySelector('#main-content')),
-    eventsReady: document.querySelector('#events-list').getAttribute('aria-busy') === 'false',
-    previousEventsReady: document.querySelector('#previous-events-list').getAttribute('aria-busy') === 'false',
-    featuredEvent: document.querySelector('#meeting-card-title').textContent,
-    previousEventsText: document.querySelector('#previous-events-list').textContent,
-    privateMeetingNotes: document.querySelector('#next-event-officer-notes').textContent,
-    unauthorizedControls: [...document.querySelectorAll('[data-admin-only]')].filter((node) => !node.hidden).length,
-    menuVisible: document.querySelector('#menu-button').getClientRects().length > 0
-  }))()`);
-
-  assert(result.title === 'Club Link | Club Dashboard', `${width}px: page title is incorrect.`);
-  assert(result.innerWidth === width, `${width}px: emulated viewport width is ${result.innerWidth}.`);
-  assert(result.scrollWidth <= width, `${width}px: horizontal overflow detected (${result.scrollWidth}px).`);
-  assert(result.mainVisible && result.eventsReady && result.previousEventsReady, `${width}px: public schedule did not finish rendering.`);
-  assert(result.featuredEvent === 'Meeting', `${width}px: the closest schedule item is not featured as the next event.`);
-  assert(result.previousEventsText.includes('Completed workshop'), `${width}px: passed schedule items are missing from Previous events.`);
-  assert(!result.privateMeetingNotes.includes('Discuss volunteer assignments.'), `${width}px: private meeting notes leaked into the public view.`);
-  assert(result.unauthorizedControls === 0, `${width}px: officer controls are visible while logged out.`);
-  assert(result.menuVisible === (width <= 860), `${width}px: navigation breakpoint is incorrect.`);
-
-  if (width <= 500) {
-    await evaluate(cdp, `document.querySelector('#menu-button').click()`);
-    const nav = await evaluate(cdp, `({
-      expanded: document.querySelector('#menu-button').getAttribute('aria-expanded'),
-      open: document.querySelector('#sidebar').classList.contains('is-open'),
-      noScroll: document.body.classList.contains('no-scroll')
-    })`);
-    assert(nav.expanded === 'true' && nav.open && nav.noScroll, `${width}px: mobile navigation did not open.`);
-    await evaluate(cdp, `document.querySelector('#sidebar-close').click()`);
-  }
-
-  await evaluate(cdp, `document.documentElement.style.scrollBehavior = 'auto'; window.scrollTo(0, 0)`);
-  await delay(180);
-  const dashboardActive = await evaluate(cdp, `document.querySelector('.nav-link.is-active')?.dataset.section`);
-  assert(dashboardActive === 'dashboard', `${width}px: dashboard is not selected at the top of the page.`);
-
-  await evaluate(cdp, `document.querySelector('#events').scrollIntoView()`);
-  await delay(180);
-  const eventsPosition = await evaluate(cdp, `({
-    active: document.querySelector('.nav-link.is-active')?.dataset.section,
-    scrollY: window.scrollY,
-    viewportHeight: window.innerHeight,
-    documentHeight: document.documentElement.scrollHeight,
-    dashboardTop: document.querySelector('#dashboard').getBoundingClientRect().top,
-    eventsTop: document.querySelector('#events').getBoundingClientRect().top,
-    announcementsTop: document.querySelector('#announcements').getBoundingClientRect().top,
-    aboutTop: document.querySelector('#about').getBoundingClientRect().top
-  })`);
-  assert(eventsPosition.active === 'events', `${width}px: events navigation is not selected while viewing the schedule (${JSON.stringify(eventsPosition)}).`);
-
-  await evaluate(cdp, `window.scrollTo(0, document.documentElement.scrollHeight)`);
-  await delay(180);
-  const aboutActive = await evaluate(cdp, `document.querySelector('.nav-link.is-active')?.dataset.section`);
-  assert(aboutActive === 'about', `${width}px: club information is not selected at the bottom of the page.`);
-  if (width === 390) {
-    const aboutScreenshot = await cdp.send('Page.captureScreenshot', { format: 'png', fromSurface: true });
-    writeFileSync(join(artifacts, 'club-link-about-390.png'), Buffer.from(aboutScreenshot.data, 'base64'));
-  }
-  await evaluate(cdp, `window.scrollTo(0, 0)`);
-  await delay(120);
-
-  await evaluate(cdp, `document.querySelector('#open-auth-button').click()`);
-  await delay(240);
-  const auth = await evaluate(cdp, `({
-    open: document.querySelector('#auth-dialog').open,
-    setupNotice: !document.querySelector('#auth-config-notice').hidden,
-    submitDisabled: document.querySelector('#auth-submit').disabled,
-    viewportHeight: window.innerHeight,
-    left: document.querySelector('#auth-dialog .dialog-card').getBoundingClientRect().left,
-    right: document.querySelector('#auth-dialog .dialog-card').getBoundingClientRect().right,
-    bottom: document.querySelector('#auth-dialog .dialog-card').getBoundingClientRect().bottom
-  })`);
-  assert(auth.open, `${width}px: sign-in dialog did not open.`);
-  assert(auth.submitDisabled === auth.setupNotice, `${width}px: sign-in availability does not match configuration state.`);
-  if (width === 375) {
-    const debugAuthScreenshot = await cdp.send('Page.captureScreenshot', { format: 'png', fromSurface: true });
-    writeFileSync(join(artifacts, 'club-link-auth-375.png'), Buffer.from(debugAuthScreenshot.data, 'base64'));
-  }
-  assert(
-    auth.left >= 0 && auth.right <= width && auth.bottom <= auth.viewportHeight,
-    `${width}px: sign-in dialog does not fit the viewport (${JSON.stringify(auth)}).`,
-  );
-  if (width === 390) {
-    const authScreenshot = await cdp.send('Page.captureScreenshot', { format: 'png', fromSurface: true });
-    writeFileSync(join(artifacts, 'club-link-auth-390.png'), Buffer.from(authScreenshot.data, 'base64'));
-  }
-  await evaluate(cdp, `document.querySelector('#auth-dialog .dialog-cancel').click()`);
-
-  if (width <= 430) {
-    const stressWidth = await evaluate(cdp, `(() => {
-      const meeting = document.querySelector('#meeting-card-title');
-      const originalMeeting = meeting.textContent;
-      meeting.textContent = 'ExtremelyLongUnbrokenMeetingTitle'.repeat(18);
-
-      const event = document.createElement('article');
-      event.className = 'event-card';
-      const eventHeading = document.createElement('h3');
-      eventHeading.textContent = 'ExtremelyLongUnbrokenEventTitle'.repeat(18);
-      event.append(eventHeading);
-      document.querySelector('#events-list').append(event);
-
-      const announcement = document.createElement('article');
-      announcement.className = 'announcement-card';
-      const content = document.createElement('div');
-      content.className = 'announcement-content';
-      const heading = document.createElement('h3');
-      heading.textContent = 'ExtremelyLongUnbrokenAnnouncementTitle'.repeat(18);
-      const body = document.createElement('p');
-      body.className = 'announcement-body';
-      body.textContent = 'ExtremelyLongUnbrokenAnnouncementBody'.repeat(30);
-      content.append(heading, body);
-      announcement.append(content);
-      document.querySelector('#announcements-list').append(announcement);
-
-      const previousHeading = document.querySelector('.previous-event-content h4');
-      const originalPreviousHeading = previousHeading?.textContent;
-      if (previousHeading) previousHeading.textContent = 'ExtremelyLongUnbrokenPreviousEventTitle'.repeat(18);
-
-      const measured = document.documentElement.scrollWidth;
-      meeting.textContent = originalMeeting;
-      event.remove();
-      announcement.remove();
-      if (previousHeading) previousHeading.textContent = originalPreviousHeading;
-      return measured;
-    })()`);
-    assert(stressWidth <= width, `${width}px: long database content causes horizontal overflow (${stressWidth}px).`);
-  }
-
-  const screenshot = await cdp.send('Page.captureScreenshot', { format: 'png', fromSurface: true });
-  writeFileSync(join(artifacts, `club-link-${width}.png`), Buffer.from(screenshot.data, 'base64'));
-  return result;
-}
-
-async function testOfficerSchedule(cdp) {
-  const url = `${appUrl}?officer-test=1`;
-  await cdp.send('Emulation.setDeviceMetricsOverride', {
-    width: 390,
-    height: 844,
-    deviceScaleFactor: 1,
-    mobile: true,
-  });
-  await cdp.send('Page.navigate', { url });
-  await waitForPageReady(cdp, url);
-
-  const officerView = await evaluate(cdp, `({
-    controls: [...document.querySelectorAll('[data-admin-only]')].filter((node) => !node.hidden).length,
-    privateNotes: document.querySelector('#next-event-officer-notes').textContent,
-    scrollWidth: document.documentElement.scrollWidth
-  })`);
-  assert(officerView.controls > 0, 'Officer schedule controls did not become available.');
-  assert(officerView.privateNotes.includes('Discuss volunteer assignments.'), 'Officer-only meeting notes were not loaded for the officer.');
-  assert(officerView.scrollWidth <= 390, 'Officer meeting details cause horizontal overflow at 390px.');
-
-  await evaluate(cdp, `document.querySelector('#next-event-officer-notes summary').click()`);
-  const officerNotesScreenshot = await cdp.send('Page.captureScreenshot', { format: 'png', fromSurface: true });
-  writeFileSync(join(artifacts, 'club-link-officer-notes-390.png'), Buffer.from(officerNotesScreenshot.data, 'base64'));
-
-  await evaluate(cdp, `document.querySelector('#add-event-button').click()`);
-  await delay(220);
-  const meetingForm = await evaluate(cdp, `({
-    open: document.querySelector('#event-dialog').open,
-    type: document.querySelector('#event-type').value,
-    otherHidden: document.querySelector('#event-name-field').hidden,
-    otherDisabled: document.querySelector('#event-name').disabled,
-    notesHidden: document.querySelector('#meeting-officer-notes-field').hidden,
-    notesDisabled: document.querySelector('#meeting-officer-notes').disabled,
-    cardBottom: document.querySelector('#event-dialog .dialog-card').getBoundingClientRect().bottom,
-    viewportHeight: window.innerHeight
-  })`);
-  assert(meetingForm.open && meetingForm.type === 'meeting', 'The schedule form does not default to Meeting.');
-  assert(meetingForm.otherHidden && meetingForm.otherDisabled, 'The custom event name is active for Meeting.');
-  assert(!meetingForm.notesHidden && !meetingForm.notesDisabled, 'Private officer notes are unavailable for Meeting.');
-  assert(meetingForm.cardBottom <= meetingForm.viewportHeight, `The meeting form does not fit the 390px mobile viewport (${JSON.stringify(meetingForm)}).`);
-  const meetingFormScreenshot = await cdp.send('Page.captureScreenshot', { format: 'png', fromSurface: true });
-  writeFileSync(join(artifacts, 'club-link-meeting-form-390.png'), Buffer.from(meetingFormScreenshot.data, 'base64'));
-
-  await evaluate(cdp, `(() => {
-    const type = document.querySelector('#event-type');
-    type.value = 'other';
-    type.dispatchEvent(new Event('change', { bubbles: true }));
-  })()`);
-  const otherForm = await evaluate(cdp, `({
-    otherHidden: document.querySelector('#event-name-field').hidden,
-    otherDisabled: document.querySelector('#event-name').disabled,
-    otherRequired: document.querySelector('#event-name').required,
-    notesHidden: document.querySelector('#meeting-officer-notes-field').hidden,
-    notesDisabled: document.querySelector('#meeting-officer-notes').disabled
-  })`);
-  assert(!otherForm.otherHidden && !otherForm.otherDisabled && otherForm.otherRequired, 'Other does not reveal the required event name field.');
-  assert(otherForm.notesHidden && otherForm.notesDisabled, 'Meeting-only notes remain available for Other.');
-  await evaluate(cdp, `document.querySelector('#event-dialog .dialog-close').click()`);
-
-  await evaluate(cdp, `document.querySelector('#edit-next-event-button').click()`);
-  await delay(220);
-  const editedMeeting = await evaluate(cdp, `({
-    id: document.querySelector('#event-id').value,
-    type: document.querySelector('#event-type').value,
-    notes: document.querySelector('#meeting-officer-notes').value
-  })`);
-  assert(editedMeeting.id === 'future-1' && editedMeeting.type === 'meeting', 'Editing the next meeting does not restore its schedule type.');
-  assert(editedMeeting.notes === 'Discuss volunteer assignments.', 'Editing a meeting does not restore its private officer notes.');
-  await evaluate(cdp, `document.querySelector('#event-dialog .dialog-close').click()`);
-}
-
-async function testLegalPage(cdp, path, expectedTitle, width, height) {
-  await cdp.send('Emulation.setDeviceMetricsOverride', {
-    width,
-    height,
-    deviceScaleFactor: 1,
-    mobile: width <= 500,
-  });
-  const url = new URL(path, appUrl).href;
-  await cdp.send('Page.navigate', { url });
-  await waitFor(async () => evaluate(cdp, `location.href === ${JSON.stringify(url)} && document.readyState === 'complete'`), `${path} did not finish loading.`);
-  const result = await evaluate(cdp, `({
-    title: document.title,
-    heading: document.querySelector('h1')?.textContent,
-    scrollWidth: document.documentElement.scrollWidth,
-    dashboardTarget: document.querySelector('.legal-back')?.getAttribute('href')
-  })`);
-  assert(result.title === `${expectedTitle} | Club Link`, `${path}: page title is incorrect.`);
-  assert(result.heading === expectedTitle, `${path}: heading is incorrect.`);
-  assert(result.scrollWidth <= width, `${path} at ${width}px: horizontal overflow detected.`);
-  assert(result.dashboardTarget === 'index.html', `${path}: dashboard navigation target is incorrect.`);
-}
-
-try {
+const fixture=readFileSync(join(root,'tests/browser-fixture.js'),'utf8');
+const ev=(cdp,code)=>evaluate(cdp,code);
+async function click(cdp,id){await ev(cdp,`document.getElementById(${JSON.stringify(id)}).click()`);}
+async function until(cdp,code,message=code){try{await waitFor(()=>ev(cdp,code),message);}catch(error){console.error(await ev(cdp,"({url:location.href,body:document.body?.innerText?.slice(0,500),fixture:!!window.__fixture,busy:document.querySelector('#events-list')?.getAttribute('aria-busy')})"));throw error;}}
+async function fill(cdp,id,value){await ev(cdp,`(()=>{const input=document.getElementById(${JSON.stringify(id)});input.value=${JSON.stringify(value)};input.dispatchEvent(new Event('input',{bubbles:true}));input.dispatchEvent(new Event('change',{bubbles:true}));})()`);}
+async function submit(cdp,id){await ev(cdp,`document.getElementById(${JSON.stringify(id)}).requestSubmit()`);}
+async function navigate(cdp,role=''){await cdp.send('Page.navigate',{url:appUrl+(role?'?test-role='+role:'')});await until(cdp,"document.readyState==='complete' && !!window.__fixture && document.querySelector('#events-list')?.getAttribute('aria-busy')==='false'");if(role)await until(cdp,"document.querySelectorAll('.club-card').length===2");}
+async function openA(cdp){await ev(cdp,"document.querySelector('.club-card').click()");await until(cdp,"document.querySelector('#selected-club-name').textContent==='Test Club A' && document.querySelector('#events-list').getAttribute('aria-busy')==='false'");}
+async function noOverflow(cdp,width){const measured=await ev(cdp,"({width:innerWidth,scroll:document.documentElement.scrollWidth,dialogs:[...document.querySelectorAll('dialog[open]')].map(x=>({width:x.clientWidth,scroll:x.scrollWidth}))})");assert(measured.width===width&&measured.scroll<=width&&measured.dialogs.every(x=>x.scroll<=x.width),`Overflow at ${width}px: ${JSON.stringify(measured)}`);}
+async function shot(cdp,name){await delay(250);const {data}=await cdp.send('Page.captureScreenshot',{format:'png'});writeFileSync(join(artifacts,name+'.png'),Buffer.from(data,'base64'));}
+try{
   await ensureServer();
-  browser = spawn(browserPath, [
-    '--headless',
-    '--no-sandbox',
-    '--disable-gpu',
-    '--disable-gpu-compositing',
-    '--disable-gpu-sandbox',
-    '--no-first-run',
-    '--remote-debugging-port=0',
-    `--user-data-dir=${profile}`,
-    appUrl,
-  ], { stdio: 'ignore', windowsHide: true });
-
-  const portFile = join(profile, 'DevToolsActivePort');
-  await waitFor(() => existsSync(portFile), 'The browser debugging connection did not start.');
-  const [port] = readFileSync(portFile, 'utf8').split(/\r?\n/);
-  const targets = await waitFor(async () => {
-    try {
-      const response = await fetch(`http://127.0.0.1:${port}/json/list`);
-      return response.ok ? response.json() : null;
-    } catch {
-      return null;
-    }
-  }, 'No browser page was available.');
-  const page = targets.find((target) => target.type === 'page');
-  assert(page?.webSocketDebuggerUrl, 'No debuggable browser page was found.');
-
-  const cdp = new CdpConnection(page.webSocketDebuggerUrl);
-  await cdp.open();
-  const browserErrors = [];
-  cdp.on('Runtime.exceptionThrown', (params) => browserErrors.push(params.exceptionDetails?.text || 'Uncaught exception'));
-  await cdp.send('Runtime.enable');
-  await cdp.send('Page.enable');
-  await cdp.send('Network.enable');
-  await cdp.send('Network.setBlockedURLs', { urls: ['https://cdn.jsdelivr.net/*'] });
-  await cdp.send('Page.addScriptToEvaluateOnNewDocument', {
-    source: `window.supabase = {
-      createClient() {
-        const query = {
-          select() { return this; },
-          order() {
-            const day = 86400000;
-            const events = [
-              { id: 'future-1', event_type: 'meeting', name: 'Meeting', event_date: new Date(Date.now() + day).toISOString(), location: 'Library', description: 'Review the next activity.' },
-              { id: 'future-2', event_type: 'other', name: 'Service event', event_date: new Date(Date.now() + day * 5).toISOString(), location: 'Courtyard', description: null },
-              { id: 'past-1', event_type: 'other', name: 'Completed workshop', event_date: new Date(Date.now() - day).toISOString(), location: 'Room 4', description: 'Archived automatically.' }
-            ];
-            const meetingDetails = [{ event_id: 'future-1', notes: 'Discuss volunteer assignments.', updated_at: new Date().toISOString() }];
-            const data = this.table === 'events' ? events : this.table === 'event_officer_details' ? meetingDetails : [];
-            return Promise.resolve({ data, error: null });
-          },
-          eq() { return this; },
-          maybeSingle() {
-            const isOfficer = new URLSearchParams(location.search).has('officer-test');
-            const data = this.table === 'admins' && isOfficer ? { user_id: 'officer-1', role: 'officer' } : null;
-            return Promise.resolve({ data, error: null });
-          }
-        };
-        return {
-          from(table) {
-            const instance = Object.create(query);
-            instance.table = table;
-            return instance;
-          },
-          auth: {
-            getSession() {
-              const isOfficer = new URLSearchParams(location.search).has('officer-test');
-              const user = isOfficer ? { id: 'officer-1', email: 'officer@example.com' } : null;
-              return Promise.resolve({ data: { session: user ? { user } : null }, error: null });
-            },
-            onAuthStateChange() {
-              return { data: { subscription: { unsubscribe() {} } } };
-            }
-          }
-        };
-      }
-    };`,
-  });
-
-  const results = [];
-  for (const [width, height] of [[1440, 1000], [375, 812], [390, 844], [430, 900]]) {
-    results.push(await testViewport(cdp, width, height));
+  browser=spawn(browserPath,['--headless','--no-sandbox','--disable-gpu','--no-first-run','--remote-debugging-port=0',`--user-data-dir=${profile}`,'about:blank'],{stdio:'ignore',windowsHide:true});
+  const portFile=join(profile,'DevToolsActivePort');await waitFor(()=>existsSync(portFile),'Browser did not start');
+  const [port]=readFileSync(portFile,'utf8').split(/\r?\n/);
+  const targets=await (await fetch(`http://127.0.0.1:${port}/json/list`)).json();
+  const cdp=new CdpConnection(targets.find(x=>x.type==='page').webSocketDebuggerUrl);await cdp.open();
+  const errors=[];cdp.on('Runtime.exceptionThrown',p=>{const error=p.exceptionDetails?.exception?.description||p.exceptionDetails?.text;errors.push(error);console.error(error);});
+  cdp.on('Page.javascriptDialogOpening',()=>cdp.send('Page.handleJavaScriptDialog',{accept:true}));
+  await cdp.send('Runtime.enable');await cdp.send('Page.enable');await cdp.send('Network.enable');
+  cdp.on('Network.loadingFailed',p=>{if(p.blockedReason!=='inspector'&&p.errorText!=='net::ERR_BLOCKED_BY_CLIENT')console.error('Network failed',p.errorText,p.blockedReason);});
+  cdp.on('Runtime.consoleAPICalled',p=>{if(p.type==='error')console.error('Browser console',p.args.map(x=>x.value||x.description));});
+  await cdp.send('Network.setBlockedURLs',{urls:['https://cdn.jsdelivr.net/*','https://fonts.googleapis.com/*','https://fonts.gstatic.com/*']});
+  await cdp.send('Page.addScriptToEvaluateOnNewDocument',{source:fixture});
+  for(const width of [1440,375,390,430]){
+    await cdp.send('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:width<500});
+    await navigate(cdp);await noOverflow(cdp,width);
+    assert(await ev(cdp,"document.querySelector('#dashboard').hidden"),'Landing exposed club content');
+    await click(cdp,'home-signup');await noOverflow(cdp,width);await ev(cdp,"document.querySelector('#signup-dialog .dialog-cancel').click()");
+    await click(cdp,'home-guest');await fill(cdp,'join-code','invalid');await submit(cdp,'join-form');
+    await until(cdp,"!document.querySelector('#join-error').hidden");await fill(cdp,'join-code','MEM-003-729');await submit(cdp,'join-form');
+    await until(cdp,"document.querySelector('#selected-club-name').textContent==='Test Club A'");
+    assert(await ev(cdp,"document.querySelector('#manage-codes').hidden && document.querySelector('#add-event-button').hidden && !document.querySelector('#guest-recommendation').hidden"),'Guest controls leaked');
+    assert(await ev(cdp,"!document.body.innerText.includes('Private original notes')"),'Guest private notes leaked');
+    await noOverflow(cdp,width);
+    if(width<500){await click(cdp,'menu-button');assert(await ev(cdp,"document.querySelector('#menu-button').getAttribute('aria-expanded')==='true'"),'Mobile menu failed');await click(cdp,'sidebar-close');}
+    await navigate(cdp,'officer');await openA(cdp);await noOverflow(cdp,width);
+    assert(await ev(cdp,"document.querySelector('#previous-events-list').innerText.includes('Previous workshop')"),'Archive missing');
+    await ev(cdp,"window.scrollTo({top:document.documentElement.scrollHeight,behavior:'instant'})");await delay(160);
+    assert(await ev(cdp,"document.querySelector('.nav-link.is-active').dataset.section==='about'"),'Bottom navigation incorrect');
+    await ev(cdp,"window.scrollTo({top:0,behavior:'instant'})");await delay(160);
+    assert(await ev(cdp,"document.querySelector('.nav-link.is-active').dataset.section==='dashboard'"),'Dashboard navigation incorrect');
+    await ev(cdp,"document.querySelector('#next-event-officer-notes button').click()");
+    await noOverflow(cdp,width);await shot(cdp,'agenda-'+width);
+    await click(cdp,'agenda-add');await until(cdp,"document.querySelectorAll('.agenda-item').length===2");
+    await ev(cdp,"(()=>{const fields=[...document.querySelectorAll('.agenda-item')].at(-1).querySelectorAll('input,textarea');['Second topic','Plan supplies','Decision made'].forEach((v,i)=>{fields[i].value=v;fields[i].dispatchEvent(new Event('input',{bubbles:true}));});})()");
+    await ev(cdp,"document.querySelectorAll('.agenda-item')[1].querySelector('button').click()");
+    await submit(cdp,'agenda-form');await until(cdp,"document.querySelector('#agenda-status').textContent==='All notes saved.'");
+    assert(await ev(cdp,"window.__fixture.db.meeting_agenda_items[0].title==='Second topic' && window.__fixture.db.meeting_agenda_items[0].secretary_notes==='Decision made'"),'Agenda reorder/save failed');
+    await ev(cdp,"(()=>{window.__fixture.fail=true;const field=document.querySelector('.agenda-item textarea');field.value='Unsaved but retained';field.dispatchEvent(new Event('input',{bubbles:true}));})()");
+    await submit(cdp,'agenda-form');await until(cdp,"!document.querySelector('#agenda-error').hidden");
+    assert(await ev(cdp,"document.querySelector('.agenda-item textarea').value==='Unsaved but retained'"),'Failed save lost draft');
+    await ev(cdp,"window.__fixture.fail=false");await submit(cdp,'agenda-form');await until(cdp,"document.querySelector('#agenda-status').textContent==='All notes saved.'");
+    await ev(cdp,"document.querySelectorAll('.agenda-item')[1].querySelector('button:last-child').click()");await submit(cdp,'agenda-form');await until(cdp,"window.__fixture.db.meeting_agenda_items.length===1");
+    await click(cdp,'agenda-close');
+    await click(cdp,'add-event-button');await fill(cdp,'event-type','other');await fill(cdp,'event-name','<img src=x onerror=alert(1)> '+ 'Long title '.repeat(7));
+    await fill(cdp,'event-date','2099-10-02T15:00');await fill(cdp,'event-location','Library');await submit(cdp,'event-form');
+    await until(cdp,"!document.querySelector('#event-dialog').open");await noOverflow(cdp,width);
+    assert(await ev(cdp,"!document.querySelector('#events-list img') && document.querySelector('#events-list').textContent.includes('<img')"),'HTML injection unsafe');
+    await ev(cdp,"[...document.querySelectorAll('#events-list .event-card')].find(x=>x.textContent.includes('<img')).querySelector('.card-action').click()");
+    await fill(cdp,'event-name','Edited activity');await submit(cdp,'event-form');await until(cdp,"!document.querySelector('#event-dialog').open && document.querySelector('#events-list').textContent.includes('Edited activity')");
+    await ev(cdp,"[...document.querySelectorAll('#events-list .event-card')].find(x=>x.textContent.includes('Edited activity')).querySelector('.danger').click()");await click(cdp,'confirm-delete-button');
+    await until(cdp,"!document.querySelector('#confirm-dialog').open && !document.querySelector('#events-list').textContent.includes('Edited activity')");
+    await click(cdp,'add-announcement-button');await fill(cdp,'announcement-title','New update');await fill(cdp,'announcement-body','Long announcement '.repeat(180));await submit(cdp,'announcement-form');
+    await until(cdp,"!document.querySelector('#announcement-dialog').open");await noOverflow(cdp,width);
+    await ev(cdp,"document.querySelector('#announcements-list .card-action').click()");await fill(cdp,'announcement-title','Edited update');await submit(cdp,'announcement-form');await until(cdp,"!document.querySelector('#announcement-dialog').open && document.querySelector('#announcements-list').textContent.includes('Edited update')");
+    await ev(cdp,"document.querySelector('#announcements-list .danger').click()");await click(cdp,'confirm-delete-button');await until(cdp,"!document.querySelector('#confirm-dialog').open && !document.querySelector('#announcements-list').textContent.includes('Edited update')");
+    await click(cdp,'edit-club-button');await fill(cdp,'club-description-input','Updated club information');await fill(cdp,'color-scheme-input','forest');await submit(cdp,'club-form');await until(cdp,"!document.querySelector('#club-dialog').open && document.querySelector('#club-description').textContent==='Updated club information'");
+    await click(cdp,'manage-codes');await until(cdp,"document.querySelectorAll('.code-row').length===2");await noOverflow(cdp,width);
+    await ev(cdp,"document.querySelector('.code-row .platform-actions button:last-child').click()");await submit(cdp,'platform-confirm-form');
+    await until(cdp,"document.querySelector('#code-rows').textContent.includes('MEM-111-222')");await ev(cdp,"document.querySelector('#codes-dialog .dialog-cancel').click()");
+    await click(cdp,'my-clubs-button');await until(cdp,"document.querySelectorAll('.club-card').length===2");
+    await ev(cdp,"document.querySelectorAll('.club-card')[1].click()");
+    await until(cdp,"document.querySelector('#events-list').textContent.includes('Club B only event')");
+    assert(await ev(cdp,"document.querySelector('#add-event-button').hidden && !document.querySelector('#events-list').textContent.includes('<img') && !document.querySelector('#manage-codes').checkVisibility()"),'Club switching permissions/data incorrect');
+    await shot(cdp,'member-'+width);
+    await click(cdp,'sign-out-button');await until(cdp,"!document.querySelector('#welcome-actions').hidden");
+    assert(await ev(cdp,"!document.body.textContent.includes('Private original notes')"),'Private data retained after logout');
   }
-  await testOfficerSchedule(cdp);
-  assert(browserErrors.length === 0, `Browser exceptions: ${browserErrors.join('; ')}`);
-
-  await testLegalPage(cdp, '/privacy', 'Privacy Policy', 375, 812);
-  await testLegalPage(cdp, '/terms', 'Terms of Use', 1440, 1000);
-
-  const privacy = await fetch('http://127.0.0.1:4173/privacy');
-  const terms = await fetch('http://127.0.0.1:4173/terms');
-  assert(privacy.ok && terms.ok, 'Privacy or Terms navigation target is unavailable.');
-
-  cdp.close();
-  console.log(`Browser checks passed at ${results.map((item) => `${item.innerWidth}px`).join(', ')} with no horizontal overflow or uncaught exceptions.`);
-} finally {
-  if (browser && !browser.killed) browser.kill();
-  if (server && !server.killed) server.kill();
-  await delay(350);
-  try {
-    rmSync(profile, { recursive: true, force: true, maxRetries: 4, retryDelay: 150 });
-  } catch {
-    // Windows may keep browser profile files locked briefly after Chrome exits.
-  }
+  await navigate(cdp);
+  await click(cdp,'home-signup');for(const [id,value] of [['signup-first','Test'],['signup-initial','T'],['signup-email','test@example.com'],['signup-password',' unchanged password ']])await fill(cdp,id,value);
+  await submit(cdp,'signup-form');await until(cdp,"document.querySelector('#signup-status').textContent.includes('Check your email')");
+  assert(await ev(cdp,"window.__fixture.signup.password===' unchanged password ' && Object.keys(window.__fixture.signup.options.data).length===2"),'Signup fields incorrect');
+  await ev(cdp,"document.querySelector('#signup-dialog .dialog-cancel').click()");
+  await click(cdp,'home-login');await fill(cdp,'auth-email','test@example.com');await fill(cdp,'auth-password',' unchanged password ');await submit(cdp,'auth-form');
+  await until(cdp,"document.querySelectorAll('.club-card').length===2");
+  assert(await ev(cdp,"window.__fixture.login.password===' unchanged password '"),'Login password changed');
+  await navigate(cdp,'member');await click(cdp,'join-officer');await fill(cdp,'join-code','OFI-104-738');await submit(cdp,'join-form');
+  await until(cdp,"!document.querySelector('#add-event-button').hidden");
+  await navigate(cdp,'super');await click(cdp,'create-club');await fill(cdp,'new-club-name','Disposable test club');await fill(cdp,'new-club-description','Test description');await submit(cdp,'new-club-form');
+  await until(cdp,"document.querySelector('#selected-club-name').textContent==='Disposable test club'");await click(cdp,'delete-club');await fill(cdp,'delete-name','Disposable test club');await submit(cdp,'platform-confirm-form');
+  await until(cdp,"document.querySelectorAll('.club-card').length===2 && !document.querySelector('#platform-home').hidden");
+  // Empty and failed reads retain a usable landing/error state.
+  await ev(cdp,"window.__fixture.db.club_memberships=[];window.__fixture.db.clubs=[]");await click(cdp,'my-clubs-button');
+  await until(cdp,"document.querySelector('#home-status').textContent.includes('No clubs')");
+  await ev(cdp,"window.__fixture.fail=true");await click(cdp,'my-clubs-button');await until(cdp,"!document.querySelector('#home-retry').hidden");
+  for(const path of ['privacy','terms']){await cdp.send('Page.navigate',{url:appUrl+path});await until(cdp,"document.readyState==='complete'&&!!document.querySelector('h1')");await noOverflow(cdp,430);}
+  assert(errors.length===0,'Browser exceptions: '+errors.join('; '));
+  for(const path of ['.env.local','api/access.js','migrations/001_multi_club.sql','node_modules/@electric-sql/pglite/package.json','.git/config','js/%2e%2e%2fpackage.json'])assert((await fetch(appUrl+path)).status===404,'Private path served: '+path);
+  assert((await fetch(appUrl+'%malformed')).status===400,'Malformed URLs must not crash the local server');
+  assert((await fetch(appUrl+'api/access',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:'MEM-000-000',kind:'member'})})).status===503,'Missing server setup must fail clearly');
+  cdp.close();console.log('PASS: browser login/signup, guest, roles, club switching, event/announcement creation, private agenda add/reorder/save, code rotation, super create/delete, empty/error states, navigation, escaping, 1440/375/390/430px and legal pages. Test fixtures only; live auth not exercised.');
+}finally{
+  if(browser&&!browser.killed)browser.kill();if(server&&!server.killed)server.kill();
+  // Temporary browser profiles are left to the OS if locked; never touch a real profile.
 }

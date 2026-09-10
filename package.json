@@ -3,13 +3,17 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "A Supabase-backed schedule and information dashboard for a high school club.",
+  "description": "A club-scoped school club platform with Supabase authentication, RLS, and meeting agendas.",
   "scripts": {
     "start": "node scripts/serve.mjs",
-    "check": "node tests/project-check.mjs && node --test tests/utils.test.mjs tests/database-contract.test.mjs tests/auth-contract.test.mjs tests/settings-regression.test.mjs",
+    "build": "node scripts/build.mjs",
+    "check": "node tests/project-check.mjs && node --test tests/utils.test.mjs tests/database-contract.test.mjs tests/auth-contract.test.mjs tests/settings-regression.test.mjs tests/access-api.test.mjs && node tests/multi-club-rls.test.mjs",
     "browser-check": "node tests/browser-check.mjs"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8"
   }
 }

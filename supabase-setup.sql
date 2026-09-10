@@ -4,6 +4,13 @@
 
 begin;
 
+-- This is the legacy baseline, not the multi-club upgrade. Never restore its public policies.
+do $$ begin
+  if to_regclass('public.club_memberships') is not null then
+    raise exception 'Multi-club is already installed. Do not rerun the single-club baseline.';
+  end if;
+end $$;
+
 create extension if not exists pgcrypto;
 create schema if not exists private;
 
