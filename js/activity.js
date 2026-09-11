@@ -1,4 +1,5 @@
 import {clubRpc} from './database.js';
+import {inlineConfirm} from './inline-confirm.js';
 import {formatDateTime,toDatetimeLocalValue} from './utils.js';
 
 const node=(tag,text,className='')=>{const el=document.createElement(tag);el.textContent=text;el.className=className;return el;};
@@ -24,7 +25,20 @@ export function createActivity(getContext,onSessions) {
       } else {
         const rows=kind==='members'?r.members:r.attendees;
         box.append(node('p',`${rows.length} ${kind==='members'?'total members':'attendees'}`));
-        const list=node('ul','','activity-names');for(const person of rows)list.append(node('li',name(person)));box.append(list);
+        const list=node('ul','','activity-names');
+        for(const person of rows){
+          const row=node('li',''),line=node('div','','member-line');line.append(node('span',name(person)));row.append(line);
+          if(kind==='members'&&person.can_remove&&person.user_id&&person.user_id!==ctx.user.id){
+            const confirm=node('div','');confirm.hidden=true;
+            const remove=button('×',()=>inlineConfirm(confirm,{
+              title:`Remove ${name(person)}?`,copy:'They will lose club access. They can rejoin with a valid club code.',label:'Remove member',
+              onConfirm:async()=>{await clubRpc('remove_club_member',{p_club:ctx.clubId,p_user:person.user_id});if(ticket===revision)await report('members');}
+            }),line);
+            remove.setAttribute('aria-label',`Remove ${name(person)}`);row.append(confirm);
+          }
+          list.append(row);
+        }
+        box.append(list);
         if(!rows.length)box.append(node('p',kind==='members'?'No members yet.':'No check-ins yet.'));
       }
     } catch(error){loading.textContent=error.message||'Could not load this report.';loading.setAttribute('role','alert');}

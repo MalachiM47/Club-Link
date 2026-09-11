@@ -139,7 +139,16 @@ try{
     await cdp.send('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:width<500});
     await navigate(cdp);await noOverflow(cdp,width);
     assert(await ev(cdp,"document.querySelector('#dashboard').hidden"),'Landing exposed club content');
-    if(!process.env.SKIP_SIGNUP_TESTS){await click(cdp,'home-signup');await noOverflow(cdp,width);await ev(cdp,"document.querySelector('#signup-dialog .dialog-cancel').click()");}
+    if(!process.env.SKIP_SIGNUP_TESTS){
+      await click(cdp,'home-signup');await fill(cdp,'signup-password','Preview password');await noOverflow(cdp,width);
+      const point=await ev(cdp,"(()=>{const r=document.querySelector('#signup-reveal').getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2};})()");
+      await cdp.send('Input.dispatchMouseEvent',{type:'mousePressed',button:'left',clickCount:1,...point});
+      assert(await ev(cdp,"document.querySelector('#signup-password').type==='text'"),'Held password was not revealed');
+      await cdp.send('Input.dispatchMouseEvent',{type:'mouseReleased',button:'left',clickCount:1,...point});
+      assert(await ev(cdp,"document.querySelector('#signup-password').type==='password'"),'Released password remained visible');
+      await shot(cdp,'password-reveal-'+width);
+      await ev(cdp,"document.querySelector('#signup-dialog .dialog-cancel').click()");
+    }
     await click(cdp,'home-guest');await fill(cdp,'join-code','invalid');await submit(cdp,'join-form');
     await until(cdp,"!document.querySelector('#join-error').hidden");await fill(cdp,'join-code','MEM-003-729');await submit(cdp,'join-form');
     await until(cdp,"document.querySelector('#selected-club-name').textContent==='Test Club A'");
@@ -183,6 +192,13 @@ try{
       await until(cdp,"!!document.querySelector('.activity-stats, .activity-names')");await noOverflow(cdp,width);
       await ev(cdp,"document.querySelector('.activity-stats, .activity-names').closest('dialog').querySelector('button').click()");
     }
+    await ev(cdp,"window.__fixture.db.club_memberships.push({club_id:'club-a',user_id:'removable-test',role:'member'});[...document.querySelectorAll('.officer-activity-tools button')].find(x=>x.textContent==='Members').click()");
+    await until(cdp,"!!document.querySelector('.activity-names button')");
+    await ev(cdp,"document.querySelector('.activity-names button').click()");
+    await noOverflow(cdp,width);await shot(cdp,'remove-member-'+width);
+    await ev(cdp,"document.querySelector('.activity-names form').requestSubmit()");
+    await until(cdp,"!window.__fixture.db.club_memberships.some(m=>m.user_id==='removable-test') && !document.querySelector('.activity-names form')");
+    await ev(cdp,"document.querySelector('.activity-names').closest('dialog').querySelector('button').click()");
     await click(cdp,'add-event-button');await fill(cdp,'event-type','other');await fill(cdp,'event-name','<img src=x onerror=alert(1)> '+ 'Long title '.repeat(7));
     await fill(cdp,'event-date','2099-10-02T15:00');await fill(cdp,'event-location','Library');await submit(cdp,'event-form');
     await until(cdp,"!document.querySelector('#event-dialog').open");await noOverflow(cdp,width);
@@ -205,6 +221,10 @@ try{
     assert(await ev(cdp,"document.querySelector('.officer-activity-tools').hidden"),'Officer reports visible to member');
     assert(await ev(cdp,"document.querySelector('#add-event-button').hidden && !document.querySelector('#events-list').textContent.includes('<img') && !document.querySelector('#manage-codes').checkVisibility()"),'Club switching permissions/data incorrect');
     await shot(cdp,'member-'+width);
+    await click(cdp,'leave-club');await noOverflow(cdp,width);await delay(4400);await shot(cdp,'leave-club-'+width);
+    assert(await ev(cdp,"!document.querySelector('dialog[open]') && window.__fixture.db.club_memberships.some(m=>m.club_id==='club-b')"),'Leave must wait for inline confirmation');
+    await ev(cdp,"document.querySelector('#club-action-panel form').requestSubmit()");
+    await until(cdp,"!window.__fixture.db.club_memberships.some(m=>m.club_id==='club-b') && !document.querySelector('#platform-home').hidden");
     await click(cdp,'sign-out-button');await until(cdp,"document.querySelector('#platform-confirm').open");await submit(cdp,'platform-confirm-form');await until(cdp,"!document.querySelector('#welcome-actions').hidden");
     assert(await ev(cdp,"!document.body.textContent.includes('Private original notes')"),'Private data retained after logout');
   }
@@ -220,14 +240,20 @@ try{
   await click(cdp,'home-login');await fill(cdp,'auth-email','test@example.com');await fill(cdp,'auth-password',' unchanged password ');await submit(cdp,'auth-form');
   await until(cdp,"document.querySelectorAll('.club-card').length===2");
   assert(await ev(cdp,"window.__fixture.login.password===' unchanged password '"),'Login password changed');
-  await click(cdp,'delete-account-button');await until(cdp,"document.querySelector('#account-delete-dialog').open");
-  await click(cdp,'account-delete-continue');await fill(cdp,'account-delete-word','DELETE');await click(cdp,'account-delete-ack');
-  assert(await ev(cdp,"!document.querySelector('#account-delete-submit').disabled"),'Account deletion safety checks did not unlock the final action');
-  await ev(cdp,"document.querySelector('#account-delete-dialog .dialog-cancel').click()");
+  await click(cdp,'delete-account-button');await until(cdp,"!document.querySelector('#account-action-panel').hidden");
+  assert(await ev(cdp,"!document.querySelector('dialog[open]') && document.querySelector('#account-action-panel button[type=submit]').disabled"),'Account confirmation must be inline and locked');
+  await ev(cdp,"(()=>{const x=document.querySelector('#account-action-panel input');x.value='Delete';x.dispatchEvent(new Event('input',{bubbles:true}));})()");
+  await shot(cdp,'account-delete-preview');
+  await ev(cdp,"document.querySelector('#account-action-panel form').requestSubmit()");
+  await until(cdp,"window.__fixture.deleted && !document.querySelector('#welcome-actions').hidden");
   await navigate(cdp,'member');await click(cdp,'join-officer');await fill(cdp,'join-code','OFI-104-738');await submit(cdp,'join-form');
   await until(cdp,"!document.querySelector('#add-event-button').hidden");
   await navigate(cdp,'super');await click(cdp,'create-club');await fill(cdp,'new-club-name','Disposable test club');await fill(cdp,'new-club-description','Test description');await submit(cdp,'new-club-form');
-  await until(cdp,"document.querySelector('#selected-club-name').textContent==='Disposable test club'");await click(cdp,'delete-club');await fill(cdp,'delete-name','Disposable test club');await submit(cdp,'platform-confirm-form');
+  await until(cdp,"document.querySelector('#selected-club-name').textContent==='Disposable test club'");await click(cdp,'delete-club');
+  await ev(cdp,"(()=>{const x=document.querySelector('#club-action-panel input');x.value='Disposable test club';x.dispatchEvent(new Event('input',{bubbles:true}));})()");
+  assert(await ev(cdp,"!document.querySelector('dialog[open]')"),'Club deletion opened a popup');
+  await shot(cdp,'club-delete-preview');
+  await ev(cdp,"document.querySelector('#club-action-panel form').requestSubmit()");
   await until(cdp,"document.querySelectorAll('.club-card').length===2 && !document.querySelector('#platform-home').hidden");
   assert(await ev(cdp,"document.querySelector('#my-clubs-button').disabled"),'My Clubs button should be disabled after returning home');
   // Empty and failed reads retain a usable landing/error state.

@@ -8,6 +8,8 @@ The project is intentionally built with HTML, CSS, and vanilla JavaScript so the
 
 Attendance and Profile setup: [rollout guide and testing checklist](docs/ATTENDANCE-PROFILE.md). Existing installations need migration `003_attendance.sql` after 001 and 002.
 
+Membership controls and empty-club cleanup: [review and deployment guide](docs/MEMBERSHIP-UPDATE.md). Apply migrations 004 and 005 before deploying these controls.
+
 - A responsive dashboard for phones, tablets, and desktop screens.
 - My Clubs, member-code joining, temporary guest access, and club switching.
 - Email/password authentication through Supabase Auth.

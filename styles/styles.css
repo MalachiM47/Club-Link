@@ -2140,3 +2140,13 @@ h3 {
 .activity-names li { padding:.5rem 0; overflow-wrap:anywhere; }
 button.account-row { width:100%; background:transparent; border:0; color:inherit; text-align:left; cursor:pointer; padding:0; }
 .profile-section { margin:1.5rem 0; padding-top:1rem; border-top:1px solid #d5dee5; }
+.inline-confirm { padding:20px; margin:16px 0; border:1px solid #bd7467; border-radius:8px; background:#fff; color:#142b3b; overflow-wrap:anywhere; }
+.inline-confirm h3 { margin:0 0 10px; }
+.inline-confirm input { width:100%; min-width:0; }
+.inline-confirm .field { margin-top:16px; }
+.member-line { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.member-line .button { min-width:44px; min-height:44px; font-size:1.4rem; }
+.password-with-reveal { display:flex; gap:8px; align-items:stretch; }
+.password-with-reveal input { min-width:0; flex:1; }
+.password-with-reveal button { flex-shrink:0; min-height:44px; touch-action:none; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; font-size:.8rem; }
+.password-with-reveal button[aria-pressed="true"] { background:#dce9f7; }

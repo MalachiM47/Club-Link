@@ -1,3 +1,4 @@
+import {inlineConfirm,setupPasswordReveal} from './inline-confirm.js';
 import {loadAccount,clubRpc,redeemCode,deleteAccount as deleteAccountRequest,isSupabaseConfigured} from './database.js';
 import {getAuthState,refreshAuthState,signInOfficer,signOutOfficer,signUpAccount,watchAuthState} from './auth.js';
 
@@ -14,11 +15,13 @@ export function createPlatform({selectClub,clearClub,toast,beforeLeave}) {
   function message(id,text='') {$(id).textContent=text;$(id).hidden=!text;}
   function show(id) {if(!$(id).open)$(id).showModal();}
   function resetPrivateDialogs() {
-    for(const id of ['codes-dialog','platform-confirm','new-club-dialog','join-dialog','account-delete-dialog'])$(id).close();
+    for(const id of ['codes-dialog','platform-confirm','new-club-dialog','join-dialog'])$(id).close();
+    for(const id of ['account-action-panel','club-action-panel']){$(id).replaceChildren();$(id).hidden=true;}
     $('code-rows').replaceChildren();$('join-form').reset();pending=null;
   }
   function setView(club) {
     selected=club;
+    $('leave-club').hidden=!club||Boolean(club.guestToken)||!account?.memberships.some(m=>m.club_id===club.id);
     $('platform-home').hidden=Boolean(club);$('selected-club-bar').hidden=!club;$('club-navigation').hidden=!club;
     document.querySelectorAll('.page-section').forEach(node=>node.hidden=!club);
     $('manage-codes').hidden=!club?.officer;$('delete-club').hidden=!(club&&account?.isSuper);$('my-clubs-button').disabled=!club;
@@ -232,28 +235,36 @@ export function createPlatform({selectClub,clearClub,toast,beforeLeave}) {
     } catch {if(selected===target){$('code-rows').replaceChildren();message('codes-error','Codes could not be loaded. Check your connection and officer access.');}}
   }
   $('manage-codes').addEventListener('click',loadCodes);
+  setupPasswordReveal($('signup-password'),$('signup-reveal'));
   $('delete-club').addEventListener('click',()=>{
-    const target=selected;
-    confirmation('Delete this club?',`Permanently delete ${target.name}, its events, announcements, agendas, settings, codes, and memberships? User accounts will not be deleted. This cannot be undone.`,async()=>{
-      if($('delete-name').value!==target.name)throw new Error('Type the exact club name to confirm.');
-      await clubRpc('delete_club',{p_club:target.id,p_confirmation:$('delete-name').value});await home(true);toast('Club and its content deleted. User accounts were kept.');
-    },true);
+    const target=selected;if(!target)return;
+    inlineConfirm($('club-action-panel'),{
+      title:'Delete this club?',copy:'This permanently deletes the club and its shared content. User accounts are kept.',
+      word:target.name,label:'Delete club',
+      onConfirm:async value=>{await clubRpc('delete_club',{p_club:target.id,p_confirmation:value});await home(true);toast('Club deleted.');}
+    });
   });
-  function openAccountDelete() {
-    $('account-delete-step-one').hidden=false;$('account-delete-step-two').hidden=true;$('account-delete-word').value='';$('account-delete-ack').checked=false;$('account-delete-submit').disabled=true;message('account-delete-error');show('account-delete-dialog');
-  }
-  $('delete-account-button').addEventListener('click',openAccountDelete);
-  $('account-delete-continue').addEventListener('click',()=>{$('account-delete-step-one').hidden=true;$('account-delete-step-two').hidden=false;$('account-delete-word').focus();});
-  function syncAccountDeleteButton() {$('account-delete-submit').disabled=$('account-delete-word').value.trim()!=='DELETE'||!$('account-delete-ack').checked;}
-  $('account-delete-word').addEventListener('input',syncAccountDeleteButton);$('account-delete-ack').addEventListener('change',syncAccountDeleteButton);
-  $('account-delete-step-two').addEventListener('submit',event=>{event.preventDefault();submit(event.currentTarget,'account-delete-error',async()=>{
-    if($('account-delete-word').value.trim()!=='DELETE')throw new Error('Type DELETE exactly to continue.');
-    if(!$('account-delete-ack').checked)throw new Error('Check the acknowledgement before continuing.');
-    if(!window.confirm('Final check 3 of 3: permanently delete this Club Link account? This cannot be undone.'))return;
-    await deleteAccountRequest();
-    await signOutOfficer().catch(()=>{});
-    user=null;account=null;selected=null;forgetSavedClub();await home(true);toast('Your Club Link account was deleted.');
-  });});
+  $('leave-club').addEventListener('click',()=>{
+    const target=selected;if(!target)return;
+    inlineConfirm($('club-action-panel'),{
+      title:`Leave ${target.name}?`,copy:'You will lose access to this club. You can rejoin using its code. If no members remain, the club and its content will be deleted after 7 days unless someone rejoins.',
+      label:'Leave club',
+      onConfirm:async()=>{await clubRpc('leave_club',{p_club:target.id});await home(true);toast('You left the club.');}
+    });
+  });
+  $('delete-account-button').addEventListener('click',()=>{
+    if(!user)return;
+    $('sidebar-close').click();
+    inlineConfirm($('account-action-panel'),{
+      title:'Delete your account?',copy:'This permanently deletes your account, profile, and memberships. Shared club content remains unless a club has no members for 7 days.',
+      word:'Delete',label:'Delete account',
+      onConfirm:async()=>{
+        await deleteAccountRequest();
+        await signOutOfficer().catch(()=>{});
+        user=null;account=null;selected=null;forgetSavedClub();await home(true);toast('Your Club Link account was deleted.');
+      }
+    });
+  });
   $('platform-confirm-form').addEventListener('submit',event=>{event.preventDefault();submit(event.currentTarget,'platform-confirm-error',async()=>{if(!pending)return;await pending();$('platform-confirm').close();pending=null;});});
   function handleAuthState(next) {
     if(loginInProgress) return;

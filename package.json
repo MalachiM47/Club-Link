@@ -9,7 +9,8 @@
     "build": "node scripts/build.mjs",
     "check": "node tests/project-check.mjs && node --test tests/utils.test.mjs tests/database-contract.test.mjs tests/auth-contract.test.mjs tests/settings-regression.test.mjs tests/access-api.test.mjs tests/account-api.test.mjs && node tests/multi-club-rls.test.mjs",
     "browser-check": "node tests/browser-check.mjs",
-    "attendance-check": "node tests/attendance.test.mjs"
+    "attendance-check": "node tests/attendance.test.mjs",
+    "membership-check": "node tests/membership.test.mjs"
   },
   "engines": {
     "node": ">=22"

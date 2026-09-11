@@ -1,0 +1,52 @@
+import {PGlite} from '@electric-sql/pglite';
+import {readFile} from 'node:fs/promises';
+import assert from 'node:assert/strict';
+const db=new PGlite();
+await db.exec(`create role anon;create role authenticated;create role service_role bypassrls;
+create schema auth;create table auth.users(id uuid primary key,email text,email_confirmed_at timestamptz,raw_user_meta_data jsonb default '{}');
+create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
+grant usage on schema public,auth to anon,authenticated,service_role;`);
+for(const file of ['supabase-setup.sql','migrations/001_multi_club.sql','migrations/002_meeting_minutes_times.sql','migrations/003_attendance.sql','migrations/004_membership_lifecycle.sql'])await db.exec((await readFile(file,'utf8')).replace('create extension if not exists pgcrypto;',''));
+const ids=Array.from({length:4},(_,i)=>`00000000-0000-4000-8000-00000000000${i+1}`);
+for(const id of ids)await db.query(`insert into auth.users(id,email_confirmed_at,raw_user_meta_data) values($1,now(),'{"first_name":"Test","last_initial":"T"}')`,[id]);
+const club=(await db.query("select id from clubs where legacy_key='bsu'")).rows[0].id;
+const other=(await db.query("insert into clubs(name) values('Other') returning id")).rows[0].id;
+await db.query("insert into club_memberships values($1,$2,'officer',now()),($1,$3,'member',now()),($1,$4,'member',now()),($5,$6,'officer',now())",[club,ids[0],ids[1],ids[2],other,ids[3]]);
+async function as(id,sql,args=[]){await db.query("select set_config('request.jwt.claim.sub',$1,false)",[id||'']);await db.exec(id?'set role authenticated':'set role anon');try{return (await db.query(sql,args)).rows;}finally{await db.exec('reset role');}}
+
+const exists=async c=>(await db.query('select count(*)::int n from clubs where id=$1',[c])).rows[0].n;
+const empty=async c=>(await db.query('select empty_since from clubs where id=$1',[c])).rows[0]?.empty_since;
+const leave=id=>as(id,'select leave_club($1)',[club]);
+const remove=(id,target,c=club)=>as(id,'select remove_club_member($1,$2)',[c,target]);
+assert.equal(await empty(club),null);
+for(const id of [null,ids[1],ids[3]])await assert.rejects(()=>remove(id,ids[2]));
+await assert.rejects(()=>remove(ids[0],ids[3],other));
+await assert.rejects(()=>remove(ids[0],ids[0]));
+await db.query("update club_memberships set role='officer' where user_id=$1",[ids[2]]);
+await assert.rejects(()=>remove(ids[0],ids[2]));
+await db.query("update club_memberships set role='member' where user_id=$1",[ids[2]]);
+await remove(ids[0],ids[2]);
+assert.equal((await as(ids[2],'select * from events where club_id=$1',[club])).length,0);
+await assert.rejects(()=>as(ids[2],'select club_activity($1)',[club]));
+await assert.rejects(()=>leave(ids[2]));
+const report=(await as(ids[0],'select club_officer_report($1) r',[club]))[0].r;
+assert.equal(report.members.find(m=>m.user_id===ids[1]).can_remove,true);
+assert.equal(report.members.find(m=>m.user_id===ids[0]).can_remove,false);
+await leave(ids[1]);assert.equal(await empty(club),null);
+await leave(ids[0]);assert.ok(await empty(club));
+await db.exec('select private.delete_expired_empty_clubs()');assert.equal(await exists(club),1);
+await db.query("update clubs set empty_since=now()-interval '6 days 23 hours 59 minutes' where id=$1",[club]);
+await db.exec('select private.delete_expired_empty_clubs()');assert.equal(await exists(club),1);
+// Rejoining cancels even an overdue timer before cleanup obtains the lock.
+await db.query("update clubs set empty_since=now()-interval '8 days' where id=$1",[club]);
+await db.query("insert into club_memberships(club_id,user_id,role) values($1,$2,'member')",[club,ids[1]]);
+assert.equal(await empty(club),null);
+await db.exec('select private.delete_expired_empty_clubs()');assert.equal(await exists(club),1);
+// Auth deletion cascades also start the seven-day clock.
+await db.query('delete from auth.users where id=$1',[ids[1]]);
+assert.ok(await empty(club));
+for(const id of [null,ids[0],ids[3]])await assert.rejects(()=>as(id,'select private.delete_expired_empty_clubs()'));
+await db.query("update clubs set empty_since=now()-interval '7 days 1 second' where id=$1",[club]);
+await db.exec('select private.delete_expired_empty_clubs()');assert.equal(await exists(club),0);assert.equal(await exists(other),1);
+console.log('PASS: membership authorization, removal, self-leave, immediate access revocation, account cascade, seven-day boundary, rejoin cancellation, cleanup scope and private scheduler permissions.');
+await db.close();
