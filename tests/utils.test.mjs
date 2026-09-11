@@ -11,6 +11,17 @@ import {
   toDatetimeLocalValue,
 } from '../js/utils.js';
 
+test('active events lead the schedule and completed events archive immediately', () => {
+  const events=[
+    {id:'upcoming',event_date:'2099-01-01T12:00:00Z'},
+    {id:'live',event_date:'2099-01-02T12:00:00Z',status:'active'},
+    {id:'ended',event_date:'2099-01-03T12:00:00Z',status:'completed'},
+  ];
+  const now=new Date('2099-01-01T10:00:00Z');
+  assert.deepEqual(filterUpcomingEvents(events,'','all',now).map(e=>e.id),['live','upcoming']);
+  assert.deepEqual(getPreviousEvents(events,now).map(e=>e.id),['ended']);
+});
+
 test('parseDate rejects invalid and empty values', () => {
   assert.equal(parseDate('not-a-date'), null);
   assert.equal(parseDate(''), null);

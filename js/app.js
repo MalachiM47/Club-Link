@@ -225,6 +225,10 @@ function scheduleNextEventTransition() {
 function renderNextEvent() {
   const nextEvent = getNextEvent();
   const eventDate = parseDate(nextEvent?.event_date);
+  const activityHost = document.getElementById('next-event-activity');
+  activityHost.replaceChildren();
+  document.getElementById('next-event-status').textContent = nextEvent?.status === 'active' ? 'Happening now' : 'Next event';
+  document.querySelector('.meeting-card').classList.toggle('is-live', nextEvent?.status === 'active');
 
   if (state.dataError) {
     elements.nextEventOfficerNotes.replaceChildren();
@@ -258,6 +262,7 @@ function renderNextEvent() {
   if (officerNotes) elements.nextEventOfficerNotes.append(officerNotes);
   elements.nextEventOfficerNotes.hidden = !officerNotes;
   elements.editNextEventButton.hidden = !(state.officer && nextEvent);
+  if(nextEvent){const controls=activity.renderEvent(nextEvent,true);if(controls)activityHost.append(controls);}
 }
 
 function renderDashboardEvents() {
@@ -417,6 +422,8 @@ function renderEvents() {
     card.append(details);
     const officerNotes = createOfficerNotes(event);
     if (officerNotes) card.append(officerNotes);
+    const activityControls=activity.renderEvent(event);
+    if(activityControls)card.append(activityControls);
     elements.eventsList.append(card);
   });
 }
@@ -462,6 +469,8 @@ function renderPreviousEvents() {
     }
     const officerNotes = createOfficerNotes(event);
     if (officerNotes) content.append(officerNotes);
+    const activityControls=activity.renderEvent(event);
+    if(activityControls)content.append(activityControls);
 
     row.append(dateLabel, content);
     if (state.officer) {

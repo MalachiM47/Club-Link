@@ -167,18 +167,19 @@ try{
     await ev(cdp,"window.__fixture.fail=false");await submit(cdp,'agenda-form');await until(cdp,"document.querySelector('#agenda-status').textContent==='All notes saved.'");
     await ev(cdp,"document.querySelectorAll('.agenda-item')[1].querySelector('button:last-child').click()");await submit(cdp,'agenda-form');await until(cdp,"window.__fixture.db.meeting_agenda_items.length===1");
     await click(cdp,'agenda-close');
-    await until(cdp,"document.querySelector('.activity-list')?.children.length > 0");
-    await ev(cdp,"[...document.querySelectorAll('.activity-row')].find(x=>x.textContent.includes('Previous workshop')).querySelector('button').click()");
-    await until(cdp,"document.querySelector('.activity-panel').textContent.includes('Event in Progress')");
-    await ev(cdp,"[...document.querySelectorAll('.activity-row button')].find(x=>x.textContent==='Check In').click()");
-    await until(cdp,"[...document.querySelectorAll('.activity-row button')].some(x=>x.textContent==='Checked In'&&x.disabled)");
-    await ev(cdp,"[...document.querySelectorAll('.activity-row')].find(x=>x.textContent.includes('Previous workshop')).querySelectorAll('button').forEach(x=>{if(x.textContent==='View Attendance')x.click();})");
+    await until(cdp,"!!document.querySelector('#previous-events-list .event-activity button')");
+    await ev(cdp,"[...document.querySelectorAll('#previous-events-list .previous-event-row')].find(x=>x.textContent.includes('Previous workshop')).querySelector('.event-activity button').click()");
+    await until(cdp,"document.querySelector('.meeting-card').textContent.includes('Event in Progress') && document.querySelector('#meeting-card-title').textContent==='Previous workshop'");
+    await noOverflow(cdp,width);await shot(cdp,'active-event-'+width);
+    await ev(cdp,"[...document.querySelectorAll('.event-activity button')].find(x=>x.textContent==='Check In').click()");
+    await until(cdp,"[...document.querySelectorAll('.event-activity button')].some(x=>x.textContent==='Checked In'&&x.disabled)");
+    await ev(cdp,"[...document.querySelectorAll('.meeting-card button')].find(x=>x.textContent==='View Attendance').click()");
     await until(cdp,"document.querySelector('.activity-names')?.textContent.includes('Test T.')");await noOverflow(cdp,width);
     await ev(cdp,"document.querySelector('.activity-names').closest('dialog').querySelector('button').click()");
-    await ev(cdp,"[...document.querySelectorAll('.activity-row button')].find(x=>x.textContent==='End Event').click()");
-    await until(cdp,"document.querySelector('.activity-panel').textContent.includes('Your completed events attended: 1')");
+    await ev(cdp,"[...document.querySelectorAll('.event-activity button')].find(x=>x.textContent==='End Event').click()");
+    await until(cdp,"document.querySelector('#previous-events-list').textContent.includes('Completed') && !document.querySelector('.meeting-card').textContent.includes('Previous workshop')");
     for(const label of ['Members','Club Stats']) {
-      await ev(cdp,`[...document.querySelectorAll('.activity-panel > .platform-actions button')].find(x=>x.textContent===${JSON.stringify(label)}).click()`);
+      await ev(cdp,`[...document.querySelectorAll('.officer-activity-tools button')].find(x=>x.textContent===${JSON.stringify(label)}).click()`);
       await until(cdp,"!!document.querySelector('.activity-stats, .activity-names')");await noOverflow(cdp,width);
       await ev(cdp,"document.querySelector('.activity-stats, .activity-names').closest('dialog').querySelector('button').click()");
     }
@@ -201,6 +202,7 @@ try{
     await click(cdp,'my-clubs-button');await until(cdp,"document.querySelectorAll('.club-card').length===2");
     await ev(cdp,"document.querySelectorAll('.club-card')[1].click()");
     await until(cdp,"document.querySelector('#events-list').textContent.includes('Club B only event')");
+    assert(await ev(cdp,"document.querySelector('.officer-activity-tools').hidden"),'Officer reports visible to member');
     assert(await ev(cdp,"document.querySelector('#add-event-button').hidden && !document.querySelector('#events-list').textContent.includes('<img') && !document.querySelector('#manage-codes').checkVisibility()"),'Club switching permissions/data incorrect');
     await shot(cdp,'member-'+width);
     await click(cdp,'sign-out-button');await until(cdp,"document.querySelector('#platform-confirm').open");await submit(cdp,'platform-confirm-form');await until(cdp,"!document.querySelector('#welcome-actions').hidden");

@@ -2123,10 +2123,17 @@ h3 {
   .agenda-save-bar { bottom: -20px; }
 }
 /* Club activity and account tools reuse the existing card and dialog system. */
-.activity-panel { margin-top: 2rem; border-top: 1px solid #d5dee5; padding-top: 1.5rem; }
-.activity-list { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,300px),1fr)); gap: 1rem; margin-top: 1rem; }
-.activity-row { padding: 1rem; border: 1px solid #d5dee5; border-radius: 8px; background: #fff; overflow-wrap: anywhere; }
-.activity-row p { margin: .6rem 0; }
+.officer-activity-tools { display:flex; flex-wrap:wrap; gap:10px; margin-bottom:20px; }
+.officer-activity-tools[hidden] { display:none; }
+.event-activity { margin-top:16px; overflow-wrap:anywhere; }
+.event-activity p { margin:8px 0; font-size:.9rem; }
+.event-activity .platform-actions { margin-top:12px; }
+.event-checkin { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:16px; padding:20px; margin:16px 0; background:#fff; color:#142b3b; border:2px solid #2470bf; border-radius:8px; }
+.event-checkin strong { font-size:1.15rem; }
+.event-checkin p { color:#354b5a; }
+.event-checkin .button { min-height:48px; min-width:132px; }
+.meeting-card.is-live { scroll-margin-top:90px; }
+@media(max-width:600px) { .event-checkin { padding:16px; } .event-checkin .button { width:100%; } .event-activity .button { min-height:44px; white-space:normal; } }
 .activity-stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:1rem; }
 .activity-stats dd { margin: .5rem 0; font-size:1.6rem; font-weight:700; }
 .activity-names { padding-left:1.25rem; }

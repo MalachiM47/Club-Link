@@ -64,7 +64,7 @@ export function filterUpcomingEvents(events, searchTerm, rangeDays, now = new Da
     if (!search) return true;
     return [event.name, event.location, event.description]
       .some((field) => normalizeSearch(field).includes(search));
-  });
+  }).sort((a,b) => Number(b.status==='active')-Number(a.status==='active') || parseDate(a.event_date)-parseDate(b.event_date));
 }
 
 export function getPreviousEvents(events, now = new Date()) {
