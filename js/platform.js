@@ -244,13 +244,19 @@ export function createPlatform({selectClub,clearClub,toast,beforeLeave}) {
       onConfirm:async value=>{await clubRpc('delete_club',{p_club:target.id,p_confirmation:value});await home(true);toast('Club deleted.');}
     });
   });
-  $('leave-club').addEventListener('click',()=>{
+  $('leave-club').addEventListener('click',async()=>{
     const target=selected;if(!target)return;
+    const button=$('leave-club');if(button.disabled)return;button.disabled=true;
+    try {
+    const lastMember=await clubRpc('is_last_club_member',{p_club:target.id});
+    if(selected!==target)return;
     inlineConfirm($('club-action-panel'),{
-      title:`Leave ${target.name}?`,copy:'You will lose access to this club. You can rejoin using its code. If no members remain, the club and its content will be deleted after 7 days unless someone rejoins.',
+      title:`Leave ${target.name}?`,copy:'You will lose access to this club. You can rejoin using its code.'+(lastMember?' You are the last member. If you leave, the club and its content will be deleted after 7 days unless someone rejoins.':''),
       label:'Leave club',
       onConfirm:async()=>{await clubRpc('leave_club',{p_club:target.id});await home(true);toast('You left the club.');}
     });
+    } catch(error){if(selected===target)toast('Could not check your membership. Please try again.','error');}
+    finally{button.disabled=false;}
   });
   $('delete-account-button').addEventListener('click',()=>{
     if(!user)return;

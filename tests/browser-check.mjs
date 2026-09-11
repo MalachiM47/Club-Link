@@ -221,7 +221,12 @@ try{
     assert(await ev(cdp,"document.querySelector('.officer-activity-tools').hidden"),'Officer reports visible to member');
     assert(await ev(cdp,"document.querySelector('#add-event-button').hidden && !document.querySelector('#events-list').textContent.includes('<img') && !document.querySelector('#manage-codes').checkVisibility()"),'Club switching permissions/data incorrect');
     await shot(cdp,'member-'+width);
-    await click(cdp,'leave-club');await noOverflow(cdp,width);await delay(4400);await shot(cdp,'leave-club-'+width);
+    await ev(cdp,"window.__fixture.db.club_memberships.push({club_id:'club-b',user_id:'another-member',role:'member'})");
+    await click(cdp,'leave-club');await until(cdp,"!!document.querySelector('#club-action-panel form')");
+    assert(await ev(cdp,"!document.querySelector('#club-action-panel').textContent.includes('7 days')"),'Warning shown with other members remaining');
+    await ev(cdp,"document.querySelector('#club-action-panel button[type=button]').click();window.__fixture.db.club_memberships=window.__fixture.db.club_memberships.filter(m=>m.user_id!=='another-member')");
+    await click(cdp,'leave-club');await until(cdp,"document.querySelector('#club-action-panel').textContent.includes('You are the last member')");
+    await noOverflow(cdp,width);await delay(4400);await shot(cdp,'leave-club-'+width);
     assert(await ev(cdp,"!document.querySelector('dialog[open]') && window.__fixture.db.club_memberships.some(m=>m.club_id==='club-b')"),'Leave must wait for inline confirmation');
     await ev(cdp,"document.querySelector('#club-action-panel form').requestSubmit()");
     await until(cdp,"!window.__fixture.db.club_memberships.some(m=>m.club_id==='club-b') && !document.querySelector('#platform-home').hidden");

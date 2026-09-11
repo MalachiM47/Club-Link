@@ -15,6 +15,10 @@ await db.query("insert into club_memberships values($1,$2,'officer',now()),($1,$
 async function as(id,sql,args=[]){await db.query("select set_config('request.jwt.claim.sub',$1,false)",[id||'']);await db.exec(id?'set role authenticated':'set role anon');try{return (await db.query(sql,args)).rows;}finally{await db.exec('reset role');}}
 
 const exists=async c=>(await db.query('select count(*)::int n from clubs where id=$1',[c])).rows[0].n;
+await db.exec(await readFile('migrations/006_leave_club_warning.sql','utf8'));
+assert.equal((await as(ids[1],'select is_last_club_member($1) last',[club]))[0].last,false);
+assert.equal((await as(ids[3],'select is_last_club_member($1) last',[other]))[0].last,true);
+for(const id of [null,ids[3]])await assert.rejects(()=>as(id,'select is_last_club_member($1)',[club]));
 const empty=async c=>(await db.query('select empty_since from clubs where id=$1',[c])).rows[0]?.empty_since;
 const leave=id=>as(id,'select leave_club($1)',[club]);
 const remove=(id,target,c=club)=>as(id,'select remove_club_member($1,$2)',[c,target]);

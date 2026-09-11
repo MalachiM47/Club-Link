@@ -14,6 +14,8 @@ Reviewed and approved for production. Migrations 004 and 005 were applied to the
 
 ## Deployment after review
 
+The conditional last-member warning also requires `migrations/006_leave_club_warning.sql` before deploying its frontend change. It returns only whether the signed-in member is the last member, without exposing the member directory. Membership is checked when the Leave club confirmation opens.
+
 1. Apply `migrations/004_membership_lifecycle.sql` once in the Supabase SQL editor as postgres. Existing empty clubs receive a fresh seven-day grace period; existing content is not deleted by this migration.
 2. Apply `migrations/005_empty_club_schedule.sql`. This enables pg_cron and schedules the private cleanup function every minute. Deletion occurs on the first successful run after seven days. The schedule operates without a browser open. Reapplying the named schedule does not create duplicates.
 3. Verify the job exists with `select jobname, schedule, active from cron.job where jobname = 'club-link-empty-club-cleanup';`. After its first run inspect `cron.job_run_details` for successful execution. Scheduling has not been exercised against production during local review.

@@ -57,6 +57,7 @@
         return {data:null};
       }
       if(name==='club_officer_report')return {data:{members:db.club_memberships.filter(m=>m.club_id===args.p_club).map(m=>({...m,first_name:'Test',last_initial:'T',can_remove:m.user_id!==user.id})),attendees:db.attendance.filter(a=>a.event_id===args.p_event).map(()=>({first_name:'Test',last_initial:'T'})),total_members:1,events_held:db.event_sessions.filter(s=>s.status==='completed').length,event_minutes:0,average_attendance:0,check_ins:db.attendance.length}};
+      if(name==='is_last_club_member')return {data:!db.club_memberships.some(m=>m.club_id===args.p_club&&m.user_id!==user.id)};
       if(name==='leave_club'||name==='remove_club_member'){db.club_memberships=db.club_memberships.filter(m=>!(m.club_id===args.p_club&&m.user_id===(args.p_user||user.id)));return {data:null};}
       if(name==='get_club_codes')return {data:{...codes}};
       if(name==='regenerate_club_code'){codes[args.p_kind]=args.p_kind==='member'?'MEM-111-222':'OFI-333-444';return {data:codes[args.p_kind]};}
