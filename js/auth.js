@@ -39,15 +39,18 @@ export async function signInOfficer(email,password) {
 export async function signUpAccount(firstName,lastInitial,email,password) {
   const {data,error}=await getSupabaseClient().auth.signUp({email:email.trim(),password,
     options:{data:{first_name:firstName.trim(),last_initial:lastInitial.trim().toUpperCase()}}});
+  if(error?.code==='user_already_exists'||error?.code==='email_exists'||/already registered/i.test(error?.message||'')) return {alreadyExists:true};
   if(error) throw error;
+  if(!data.session && Array.isArray(data.user?.identities) && data.user.identities.length===0) return {alreadyExists:true};
   return {user:data.session?.user??null,confirmationRequired:!data.session};
 }
 export async function signOutOfficer() {const {error}=await getSupabaseClient().auth.signOut({scope:'local'});if(error) throw error;}
 export function watchAuthState(callback) {
   if(!isSupabaseConfigured) return ()=>{};
   const {data}=getSupabaseClient().auth.onAuthStateChange((event,session)=>{
-    // Keep network queries outside Supabase's auth callback lock.
-    if(event!=='INITIAL_SESSION') window.setTimeout(()=>callback({user:session?.user??null}),0);
+    // Keep network queries outside Supabase's auth callback lock. Platform
+    // expects a User, not {user: User}; wrapping it loses the id/email fields.
+    if(event!=='INITIAL_SESSION') window.setTimeout(()=>callback(session?.user??null),0);
   });
   return ()=>data.subscription.unsubscribe();
 }

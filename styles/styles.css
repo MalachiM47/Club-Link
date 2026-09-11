@@ -2122,3 +2122,14 @@ h3 {
   .agenda-item-top .button { min-height: 44px; padding: 8px; }
   .agenda-save-bar { bottom: -20px; }
 }
+/* Club activity and account tools reuse the existing card and dialog system. */
+.activity-panel { margin-top: 2rem; border-top: 1px solid #d5dee5; padding-top: 1.5rem; }
+.activity-list { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,300px),1fr)); gap: 1rem; margin-top: 1rem; }
+.activity-row { padding: 1rem; border: 1px solid #d5dee5; border-radius: 8px; background: #fff; overflow-wrap: anywhere; }
+.activity-row p { margin: .6rem 0; }
+.activity-stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:1rem; }
+.activity-stats dd { margin: .5rem 0; font-size:1.6rem; font-weight:700; }
+.activity-names { padding-left:1.25rem; }
+.activity-names li { padding:.5rem 0; overflow-wrap:anywhere; }
+button.account-row { width:100%; background:transparent; border:0; color:inherit; text-align:left; cursor:pointer; padding:0; }
+.profile-section { margin:1.5rem 0; padding-top:1rem; border-top:1px solid #d5dee5; }

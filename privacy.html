@@ -35,6 +35,7 @@
 
     <section>
       <h2>Accounts and meeting records</h2>
+      <p>When you check into an active event, Club Link records your account, the event, and the check-in time. You can see your own completed-event attendance total for each club. Club officers and the platform Super Admin can see attendee names, member names, and club attendance statistics. Other members and guests cannot see your attendance history or the member directory. Event start and end times are visible to registered club members. Attendance is removed when its event or account is deleted.</p>
       <p>Registration asks for a first name, last initial, email, and password. A profile stores the first name and last initial. Supabase Auth handles email, password credentials, and sessions. Club Link does not store plaintext passwords in its own tables or display account emails to other members.</p>
       <p>Membership records link an account to its clubs and member or officer roles. Meeting talking points and secretary notes are stored separately from the member schedule. Only that club's officers and the platform Super Admin can access them. Avoid recording sensitive information without a clear reason and appropriate permission.</p>
     </section>
@@ -58,7 +59,7 @@
     <section>
       <h2>Data choices and questions</h2>
       <p>You may enter a Member Code without creating an account. Guest access is held in this tab's memory for up to 8 hours and is not saved as an account membership. Reloading or closing the page requires entering the code again. Rotating a Member Code also ends guest access issued under the old code.</p>
-      <p>Signed-in sessions are stored by Supabase in your browser until sign-out or expiry. Sign out on shared devices. For account corrections or deletion requests, contact your club leadership or the site owner through your school's usual channels. A club's contact may also be listed in Club information. There is no automated account-deletion form.</p>
+      <p>Signed-in sessions are stored by Supabase in your browser until sign-out or expiry. Sign out on shared devices. Click your account area to update your name, request an email change, or change your password. The account panel also provides account deletion with confirmation steps.</p>
     </section>
 
     <section>

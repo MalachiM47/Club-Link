@@ -73,10 +73,10 @@
           </button>
         </div>
         <div id="signed-in-panel" class="signed-in-panel" hidden>
-          <div class="account-row">
+          <button type="button" class="account-row" id="open-profile" aria-label="View and edit your profile">
             <span class="account-avatar" id="account-avatar" aria-hidden="true">O</span>
             <span class="account-copy"><strong id="account-role">Signed in</strong><small id="account-email"></small></span>
-          </div>
+          </button>
           <p class="access-note" id="access-note"></p>
           <button class="button button-quiet button-full" id="sign-out-button" type="button">
             <svg class="icon"><use href="#icon-logout"></use></svg>Sign out
@@ -269,6 +269,7 @@
         <div class="field"><label for="auth-email">Email address</label><input id="auth-email" name="email" type="email" autocomplete="username" required></div>
         <div class="field"><label for="auth-password">Password</label><input id="auth-password" name="password" type="password" autocomplete="current-password" minlength="6" required></div>
         <p class="form-error" id="auth-error" role="alert" hidden></p>
+        <button class="button button-secondary" id="forgot-password" type="button">Forgot password?</button>
         <div class="dialog-actions"><button class="button button-primary button-full" id="auth-submit" type="submit">Sign in</button></div>
       </form>
     </div>
@@ -344,6 +345,7 @@
         <p>Read the <a href="privacy.html" target="_blank" rel="noopener">Privacy Policy</a> and <a href="terms.html" target="_blank" rel="noopener">Terms of Use</a>.</p>
         <div class="signup-guidance" role="note"><svg class="icon" aria-hidden="true"><use href="#icon-mail"></use></svg><div><strong>After you create your account</strong><p>Check your email to confirm your account, then return here and log in.</p></div></div>
         <p id="signup-error" class="form-error" role="alert" hidden></p><p id="signup-status" role="status" hidden></p>
+        <button class="button button-secondary" id="signup-existing-login" type="button">Already have an account? Sign in</button>
         <div class="dialog-actions"><button class="button button-primary" type="submit">Create account</button></div>
       </form>
       <section class="signup-success" id="signup-success" role="status" hidden aria-labelledby="signup-success-title"><div class="signup-success-icon" aria-hidden="true"><svg class="icon"><use href="#icon-check"></use></svg></div><h3 id="signup-success-title">Account created successfully</h3><p>We sent a confirmation email to <strong id="signup-success-email"></strong>.</p><p>Confirm your email before signing in. You can close this window when you are finished.</p><div class="dialog-actions"><button class="button button-primary" id="signup-success-login" type="button">Return to sign in</button></div></section>

@@ -11,6 +11,8 @@ import {
   loadAccount,
 } from './database.js';
 import { createPlatform } from './platform.js';
+import { createActivity } from './activity.js';
+import { createProfile } from './profile.js';
 import { createAgendaEditor } from './agenda-editor.js';
 import {
   filterUpcomingEvents,
@@ -208,7 +210,9 @@ function createOfficerNotes(event, dark = false) {
 function scheduleNextEventTransition() {
   window.clearTimeout(scheduleTransitionTimer);
   scheduleTransitionTimer = null;
-  const nextEventDate = getEventArchiveDate(getNextEvent()?.event_date);
+  const nextEventDate = state.events.filter(e=>e.status!=='active'&&e.status!=='completed')
+    .map(e=>getEventArchiveDate(e.event_date)).filter(date=>date&&date.getTime()>Date.now())
+    .sort((a,b)=>a-b)[0];
   if (!nextEventDate) return;
 
   const millisecondsUntilPast = Math.max(0, nextEventDate.getTime() - Date.now() + 250);
@@ -571,6 +575,7 @@ function renderAll() {
 let viewRevision = 0;
 const agenda = createAgendaEditor(() => refreshPublicData());
 function clearClub(user) {
+  activity.clear();
   viewRevision += 1;
   agenda.discard(true);
   for (const id of ['event-dialog','announcement-dialog','club-dialog','confirm-dialog']) {
@@ -622,7 +627,7 @@ async function refreshPublicData() {
     agenda.discard(true);
     showToast(state.guestToken?'Guest access expired or is unavailable. Return to Club Link and enter the current Member Code.':'Club information could not be loaded. Check your connection and membership.','error');
   }
-  if(ticket===viewRevision)renderAll();
+  if(ticket===viewRevision){renderAll();void activity.refresh();}
 }
 
 function openDialog(dialog) {
@@ -1020,7 +1025,9 @@ function initializeWebMcp() {
   });
 }
 
+const activity = createActivity(()=>state,sessions=>{const byId=new Map(sessions.map(s=>[s.event_id,s]));state.events=state.events.map(e=>({...e,status:byId.get(e.id)?.status||'upcoming'}));renderAll();});
 const platform = createPlatform({selectClub,clearClub,toast:showToast,beforeLeave:()=>agenda.discard()});
+createProfile({onNameChanged:()=>platform.refreshProfile()});
 async function initialize() {
   elements.todayDate.textContent = new Intl.DateTimeFormat(undefined, {
     weekday: 'short', month: 'long', day: 'numeric',

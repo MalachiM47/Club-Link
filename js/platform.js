@@ -179,8 +179,10 @@ export function createPlatform({selectClub,clearClub,toast,beforeLeave}) {
   $('join-member').addEventListener('click',()=>openJoin('member'));$('join-officer').addEventListener('click',()=>openJoin('officer'));
   $('my-clubs-button').addEventListener('click',()=>home());$('home-retry').addEventListener('click',reloadAccount);
   $('signup-success-login').addEventListener('click',()=>{$('signup-dialog').close();$('open-auth-button').click();});
+  $('signup-existing-login').addEventListener('click',()=>{const email=$('signup-email').value.trim();$('signup-dialog').close();$('open-auth-button').click();$('auth-email').value=email;});
   $('signup-form').addEventListener('submit',event=>{event.preventDefault();submit(event.currentTarget,'signup-error',async data=>{
     const result=await signUpAccount(data.get('first_name'),data.get('last_initial'),data.get('email'),data.get('password'));
+    if(result.alreadyExists){message('signup-error','An account already exists for this email. Choose Sign in below. If you forgot your password, use Forgot password on the sign-in screen.');$('signup-existing-login').focus();return;}
     const email=data.get('email').trim();
     $('signup-form').reset();
     if(result.confirmationRequired) {
@@ -304,6 +306,7 @@ export function createPlatform({selectClub,clearClub,toast,beforeLeave}) {
   document.addEventListener('visibilitychange',resumeAfterVisibilityChange);
   window.addEventListener('pageshow',resumeAfterVisibilityChange);
   return {login,logout,home,
+    async refreshProfile(){await reloadAccount();},
     updateName(name){if(selected){selected.name=name;$('selected-club-name').textContent=name;}},
     updateAccess(officer,isSuper){if(selected){selected.officer=officer;$('manage-codes').hidden=!officer;$('delete-club').hidden=!isSuper;$('selected-club-role').textContent=selected.guestToken?'Guest view':isSuper?'Super Admin':officer?'Officer':'Member';}},
     async start(){setView(null);clearClub(null);if(!isSupabaseConfigured)return;try{let authState=null,lastError=null;for(let attempt=0;attempt<4;attempt+=1){try{authState=await getAuthState();break;}catch(error){lastError=error;if(attempt<3){try{await refreshAuthState();}catch{}await new Promise(resolve=>window.setTimeout(resolve,300*2**attempt));}}}if(!authState)throw lastError||new Error('Your session could not be loaded.');user=authState.user;clearClub(user);await reloadAccount();}catch{message('home-status','Your session could not be loaded. Try signing in again.');}watchAuthState(handleAuthState);},

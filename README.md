@@ -6,12 +6,17 @@ The project is intentionally built with HTML, CSS, and vanilla JavaScript so the
 
 ## What it includes
 
+Attendance and Profile setup: [rollout guide and testing checklist](docs/ATTENDANCE-PROFILE.md). Existing installations need migration `003_attendance.sql` after 001 and 002.
+
 - A responsive dashboard for phones, tablets, and desktop screens.
 - My Clubs, member-code joining, temporary guest access, and club switching.
 - Email/password authentication through Supabase Auth.
 - Meeting and Other event types, chronological upcoming events, search, filters, and previous events.
 - Officer CRUD controls for events, announcements, and club information.
 - Officer-only meeting agendas, secretary notes, and actual start/end times.
+- Event start/end controls, member check-in, corrected event durations, and private per-club attendance totals.
+- Officer-only member directories, attendance lists, and club statistics.
+- Profile name edits, secure email/password changes, and email-based password recovery.
 - Officer access-code viewing and rotation.
 - Explicit Super Admin controls for creating and deleting clubs.
 - Loading, empty, error, confirmation, and success states.
@@ -110,8 +115,9 @@ For a new, empty development database:
 1. Run `supabase-setup.sql` once.
 2. Run `migrations/001_multi_club.sql` once.
 3. Run `migrations/002_meeting_minutes_times.sql` once.
-4. Add the intended platform owner's Auth user UUID to `public.app_admins`.
-5. Confirm Email authentication is enabled and configure the Site URL and allowed redirect URLs.
+4. Run `migrations/003_attendance.sql` once.
+5. Add the intended platform owner's Auth user UUID to `public.app_admins`.
+6. Confirm Email authentication is enabled and configure the Site URL and allowed redirect URLs, including `https://YOUR_DOMAIN/?recovery=1` for password resets.
 
 For the existing club database, use the backup and verification procedure in [docs/MIGRATION.md](docs/MIGRATION.md). The migrations are transactional and are not designed to be run repeatedly.
 

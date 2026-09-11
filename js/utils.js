@@ -59,7 +59,7 @@ export function filterUpcomingEvents(events, searchTerm, rangeDays, now = new Da
 
   return events.filter((event) => {
     const eventDate = parseDate(event.event_date);
-    if (!eventDate || getEventArchiveDate(event.event_date) <= now) return false;
+    if (!eventDate || event.status==='completed' || (event.status!=='active' && getEventArchiveDate(event.event_date) <= now)) return false;
     if (upperBound && eventDate > upperBound) return false;
     if (!search) return true;
     return [event.name, event.location, event.description]
@@ -71,7 +71,7 @@ export function getPreviousEvents(events, now = new Date()) {
   return events
     .filter((event) => {
       const eventDate = parseDate(event.event_date);
-      return eventDate && getEventArchiveDate(event.event_date) <= now;
+      return eventDate && (event.status==='completed' || (event.status!=='active' && getEventArchiveDate(event.event_date) <= now));
     })
     .sort((first, second) => parseDate(second.event_date) - parseDate(first.event_date));
 }

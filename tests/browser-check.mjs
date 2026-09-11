@@ -139,7 +139,7 @@ try{
     await cdp.send('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:width<500});
     await navigate(cdp);await noOverflow(cdp,width);
     assert(await ev(cdp,"document.querySelector('#dashboard').hidden"),'Landing exposed club content');
-    await click(cdp,'home-signup');await noOverflow(cdp,width);await ev(cdp,"document.querySelector('#signup-dialog .dialog-cancel').click()");
+    if(!process.env.SKIP_SIGNUP_TESTS){await click(cdp,'home-signup');await noOverflow(cdp,width);await ev(cdp,"document.querySelector('#signup-dialog .dialog-cancel').click()");}
     await click(cdp,'home-guest');await fill(cdp,'join-code','invalid');await submit(cdp,'join-form');
     await until(cdp,"!document.querySelector('#join-error').hidden");await fill(cdp,'join-code','MEM-003-729');await submit(cdp,'join-form');
     await until(cdp,"document.querySelector('#selected-club-name').textContent==='Test Club A'");
@@ -167,6 +167,21 @@ try{
     await ev(cdp,"window.__fixture.fail=false");await submit(cdp,'agenda-form');await until(cdp,"document.querySelector('#agenda-status').textContent==='All notes saved.'");
     await ev(cdp,"document.querySelectorAll('.agenda-item')[1].querySelector('button:last-child').click()");await submit(cdp,'agenda-form');await until(cdp,"window.__fixture.db.meeting_agenda_items.length===1");
     await click(cdp,'agenda-close');
+    await until(cdp,"document.querySelector('.activity-list')?.children.length > 0");
+    await ev(cdp,"[...document.querySelectorAll('.activity-row')].find(x=>x.textContent.includes('Previous workshop')).querySelector('button').click()");
+    await until(cdp,"document.querySelector('.activity-panel').textContent.includes('Event in Progress')");
+    await ev(cdp,"[...document.querySelectorAll('.activity-row button')].find(x=>x.textContent==='Check In').click()");
+    await until(cdp,"[...document.querySelectorAll('.activity-row button')].some(x=>x.textContent==='Checked In'&&x.disabled)");
+    await ev(cdp,"[...document.querySelectorAll('.activity-row')].find(x=>x.textContent.includes('Previous workshop')).querySelectorAll('button').forEach(x=>{if(x.textContent==='View Attendance')x.click();})");
+    await until(cdp,"document.querySelector('.activity-names')?.textContent.includes('Test T.')");await noOverflow(cdp,width);
+    await ev(cdp,"document.querySelector('.activity-names').closest('dialog').querySelector('button').click()");
+    await ev(cdp,"[...document.querySelectorAll('.activity-row button')].find(x=>x.textContent==='End Event').click()");
+    await until(cdp,"document.querySelector('.activity-panel').textContent.includes('Your completed events attended: 1')");
+    for(const label of ['Members','Club Stats']) {
+      await ev(cdp,`[...document.querySelectorAll('.activity-panel > .platform-actions button')].find(x=>x.textContent===${JSON.stringify(label)}).click()`);
+      await until(cdp,"!!document.querySelector('.activity-stats, .activity-names')");await noOverflow(cdp,width);
+      await ev(cdp,"document.querySelector('.activity-stats, .activity-names').closest('dialog').querySelector('button').click()");
+    }
     await click(cdp,'add-event-button');await fill(cdp,'event-type','other');await fill(cdp,'event-name','<img src=x onerror=alert(1)> '+ 'Long title '.repeat(7));
     await fill(cdp,'event-date','2099-10-02T15:00');await fill(cdp,'event-location','Library');await submit(cdp,'event-form');
     await until(cdp,"!document.querySelector('#event-dialog').open");await noOverflow(cdp,width);
@@ -193,11 +208,13 @@ try{
   }
   await navigate(cdp);
   assert(await ev(cdp,"document.querySelector('#my-clubs-button').disabled"),'My Clubs button should be disabled on the home view');
+  if(!process.env.SKIP_SIGNUP_TESTS){
   await click(cdp,'home-signup');for(const [id,value] of [['signup-first','Test'],['signup-initial','T'],['signup-email','test@example.com'],['signup-password',' unchanged password ']])await fill(cdp,id,value);
   await submit(cdp,'signup-form');await until(cdp,"document.querySelector('#signup-status').textContent.includes('Check your email')");
   assert(await ev(cdp,"document.querySelector('#signup-form').hidden && !document.querySelector('#signup-success').hidden"),'Signup success panel did not replace the form');
   assert(await ev(cdp,"window.__fixture.signup.password===' unchanged password ' && Object.keys(window.__fixture.signup.options.data).length===2"),'Signup fields incorrect');
   await ev(cdp,"document.querySelector('#signup-dialog .dialog-cancel').click()");
+  }
   await click(cdp,'home-login');await fill(cdp,'auth-email','test@example.com');await fill(cdp,'auth-password',' unchanged password ');await submit(cdp,'auth-form');
   await until(cdp,"document.querySelectorAll('.club-card').length===2");
   assert(await ev(cdp,"window.__fixture.login.password===' unchanged password '"),'Login password changed');
@@ -221,7 +238,7 @@ try{
   assert((await fetch(appUrl+'%malformed')).status===400,'Malformed URLs must not crash the local server');
   assert((await fetch(appUrl+'api/access',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:'MEM-000-000',kind:'member'})})).status===503,'Missing server setup must fail clearly');
   assert((await fetch(appUrl+'api/account',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({confirmation:'DELETE'})})).status===503,'Missing account deletion setup must fail clearly');
-  cdp.close();console.log('PASS: browser login/signup, guest, roles, club switching, event/announcement creation, private agenda add/reorder/save, code rotation, super create/delete, empty/error states, navigation, escaping, 1440/375/390/430px and legal pages. Test fixtures only; live auth not exercised.');
+  cdp.close();console.log(`PASS: browser login, ${process.env.SKIP_SIGNUP_TESTS?'signup SKIPPED':'signup'}, guest, roles, activity start/check-in/end/reports, club switching, CRUD, agendas, navigation, 1440/375/390/430px and legal pages. Test fixtures only; live auth not exercised.`);
 }finally{
   if(browser&&!browser.killed)browser.kill();if(server&&!server.killed)server.kill();
   // Temporary browser profiles are left to the OS if locked; never touch a real profile.

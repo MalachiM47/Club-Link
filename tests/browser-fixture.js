@@ -13,7 +13,7 @@
       {id:'event-b',club_id:'club-b',event_type:'other',name:'Club B only event',event_date:date,updated_at:date,location:'Room B',description:''}],
     announcements:[{id:'announcement-a',club_id:'club-a',title:'Welcome A',body:'A member announcement',posted_at:date}],
     meeting_agenda_items:[{id:'point-a',meeting_id:'meeting-a',title:'First point',talking_point:'Original agenda',secretary_notes:'Private original notes',sort_order:0}],
-    meeting_minutes:[],
+    meeting_minutes:[],event_sessions:[],attendance:[],
   };
   let callback=()=>{};
   window.__fixture={db,calls:[],fail:false,guest:false};
@@ -47,6 +47,16 @@
     rpc:async(name,args)=>{
       window.__fixture.calls.push({rpc:name,args});
       if(window.__fixture.fail)return {error:{message:'Network failure'}};
+      if(name==='club_activity')return {data:{sessions:db.event_sessions,checked_in:db.attendance.filter(a=>a.user_id===user?.id).map(a=>a.event_id),attended:db.attendance.filter(a=>a.user_id===user?.id&&db.event_sessions.some(s=>s.event_id===a.event_id&&s.status==='completed')).length}};
+      if(name==='event_action'){
+        let s=db.event_sessions.find(s=>s.event_id===args.p_event);
+        if(args.p_action==='start'){s={event_id:args.p_event,actual_start_time:new Date().toISOString(),actual_end_time:null,status:'active',duration_minutes:null};db.event_sessions.push(s);}
+        if(args.p_action==='end'){s.actual_end_time=new Date().toISOString();s.status='completed';s.duration_minutes=0;}
+        if(args.p_action==='check_in'&&!db.attendance.some(a=>a.event_id===args.p_event&&a.user_id===user.id))db.attendance.push({event_id:args.p_event,user_id:user.id});
+        if(args.p_action==='edit'){s.actual_start_time=args.p_start;s.actual_end_time=args.p_end;s.duration_minutes=(new Date(args.p_end)-new Date(args.p_start))/60000;}
+        return {data:null};
+      }
+      if(name==='club_officer_report')return {data:{members:[{first_name:'Test',last_initial:'T'}],attendees:db.attendance.filter(a=>a.event_id===args.p_event).map(()=>({first_name:'Test',last_initial:'T'})),total_members:1,events_held:db.event_sessions.filter(s=>s.status==='completed').length,event_minutes:0,average_attendance:0,check_ins:db.attendance.length}};
       if(name==='get_club_codes')return {data:{...codes}};
       if(name==='regenerate_club_code'){codes[args.p_kind]=args.p_kind==='member'?'MEM-111-222':'OFI-333-444';return {data:codes[args.p_kind]};}
       if(name==='save_meeting_agenda'){
